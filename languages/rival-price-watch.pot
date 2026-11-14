@@ -1,0 +1,451 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Rival Price Watch 0.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"X-Domain: rival-price-watch\n"
+
+msgid "Rival Price Watch"
+msgstr ""
+
+msgid "Track competitor prices for your WooCommerce products. Add competitor product links, get daily price checks, price history and email alerts when a rival is cheaper."
+msgstr ""
+
+msgid "Rival Prices"
+msgstr ""
+
+msgid "Open"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "You are not allowed to do this."
+msgstr ""
+
+msgid "Could not download exchange rates."
+msgstr ""
+
+msgid "Exchange rates updated."
+msgstr ""
+
+msgid "Exchange rates saved."
+msgstr ""
+
+msgid "Checking started. Large catalogues are checked in small batches in the background; refresh this page in a few minutes."
+msgstr ""
+
+msgid "Overview"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+#, php-format
+msgid "Checking in progress: %d links left."
+msgstr ""
+
+#, php-format
+msgid "Next automatic check: %s"
+msgstr ""
+
+msgid "Automatic checks are off."
+msgstr ""
+
+msgid "Check all now"
+msgstr ""
+
+msgid "Market"
+msgstr ""
+
+msgid "All markets (converted to shop currency)"
+msgstr ""
+
+msgid "Show all products"
+msgstr ""
+
+msgid "Only where a rival is cheaper"
+msgstr ""
+
+msgid "No competitor links yet"
+msgstr ""
+
+msgid "Open any product, find the \"Rival prices\" box, and paste the links of the same product on competitor sites. Prices are then checked automatically."
+msgstr ""
+
+msgid "Product"
+msgstr ""
+
+msgid "Your price"
+msgstr ""
+
+msgid "Cheapest rival"
+msgstr ""
+
+msgid "Difference"
+msgstr ""
+
+msgid "All rivals"
+msgstr ""
+
+msgid "Last checked"
+msgstr ""
+
+msgid "Never"
+msgstr ""
+
+msgid "Check now"
+msgstr ""
+
+#, php-format
+msgid "Rival %s%% cheaper"
+msgstr ""
+
+#, php-format
+msgid "You are %s%% cheaper"
+msgstr ""
+
+msgid "Same price"
+msgstr ""
+
+msgid "not checked yet"
+msgstr ""
+
+msgid "out of stock"
+msgstr ""
+
+msgid "needs an exchange rate"
+msgstr ""
+
+msgid "no price found"
+msgstr ""
+
+msgid "error"
+msgstr ""
+
+#, php-format
+msgid "%s ago"
+msgstr ""
+
+msgid "Check prices"
+msgstr ""
+
+msgid "Uses WP-Cron, which runs when someone visits your site. On quiet sites, set up a real server cron job for exact timing."
+msgstr ""
+
+msgid "Email alerts"
+msgstr ""
+
+msgid "Email me when a competitor becomes cheaper than me"
+msgstr ""
+
+msgid "Alert email address"
+msgstr ""
+
+msgid "One email per check run, listing every product that changed. You are not emailed again until the price changes."
+msgstr ""
+
+msgid "Pause between requests"
+msgstr ""
+
+msgid "seconds"
+msgstr ""
+
+msgid "A pause between pages keeps checks gentle on competitor sites and lowers the chance of being blocked."
+msgstr ""
+
+msgid "Keep price history for"
+msgstr ""
+
+msgid "days"
+msgstr ""
+
+msgid "Exchange rates"
+msgstr ""
+
+#, php-format
+msgid "Rival prices in another currency are converted to your shop currency (%s) before comparing. Fill in only the currencies your competitors use; leave the rest empty."
+msgstr ""
+
+msgid "Rial and toman are converted automatically (1 toman = 10 rials)."
+msgstr ""
+
+#, php-format
+msgid "Official rates downloaded on %s."
+msgstr ""
+
+#, php-format
+msgid "Last saved on %s."
+msgstr ""
+
+msgid "Fill in today's official rates"
+msgstr ""
+
+msgid "From the free open.er-api.com service. Only sent when you click."
+msgstr ""
+
+msgid "Your shop uses the rial or toman. Official rates are far from the free-market rate, so enter the market rate for each currency yourself."
+msgstr ""
+
+msgid "Save exchange rates"
+msgstr ""
+
+#, php-format
+msgid "The page answered with HTTP %d."
+msgstr ""
+
+msgid "The site may be blocking automatic checks."
+msgstr ""
+
+msgid "No price found on the page. The site does not publish price data that can be read automatically."
+msgstr ""
+
+#, php-format
+msgid "This site sells in %1$s. Add a %1$s to %2$s exchange rate in Settings to compare it."
+msgstr ""
+
+#, php-format
+msgid "- %1$s: your price %2$s, %3$s sells it for %4$s (%5$s)"
+msgstr ""
+
+msgid "These products are now cheaper at a competitor:"
+msgstr ""
+
+msgid "US dollar"
+msgstr ""
+
+msgid "Euro"
+msgstr ""
+
+msgid "British pound"
+msgstr ""
+
+msgid "Japanese yen"
+msgstr ""
+
+msgid "Chinese yuan"
+msgstr ""
+
+msgid "Swiss franc"
+msgstr ""
+
+msgid "Canadian dollar"
+msgstr ""
+
+msgid "Australian dollar"
+msgstr ""
+
+msgid "New Zealand dollar"
+msgstr ""
+
+msgid "Hong Kong dollar"
+msgstr ""
+
+msgid "Singapore dollar"
+msgstr ""
+
+msgid "South Korean won"
+msgstr ""
+
+msgid "Indian rupee"
+msgstr ""
+
+msgid "Pakistani rupee"
+msgstr ""
+
+msgid "Afghan afghani"
+msgstr ""
+
+msgid "Iranian rial"
+msgstr ""
+
+msgid "Iranian toman"
+msgstr ""
+
+msgid "Iraqi dinar"
+msgstr ""
+
+msgid "UAE dirham"
+msgstr ""
+
+msgid "Saudi riyal"
+msgstr ""
+
+msgid "Qatari riyal"
+msgstr ""
+
+msgid "Kuwaiti dinar"
+msgstr ""
+
+msgid "Bahraini dinar"
+msgstr ""
+
+msgid "Omani rial"
+msgstr ""
+
+msgid "Turkish lira"
+msgstr ""
+
+msgid "Azerbaijani manat"
+msgstr ""
+
+msgid "Armenian dram"
+msgstr ""
+
+msgid "Georgian lari"
+msgstr ""
+
+msgid "Russian ruble"
+msgstr ""
+
+msgid "Ukrainian hryvnia"
+msgstr ""
+
+msgid "Israeli shekel"
+msgstr ""
+
+msgid "Egyptian pound"
+msgstr ""
+
+msgid "Swedish krona"
+msgstr ""
+
+msgid "Norwegian krone"
+msgstr ""
+
+msgid "Danish krone"
+msgstr ""
+
+msgid "Polish zloty"
+msgstr ""
+
+msgid "Czech koruna"
+msgstr ""
+
+msgid "Hungarian forint"
+msgstr ""
+
+msgid "Malaysian ringgit"
+msgstr ""
+
+msgid "Thai baht"
+msgstr ""
+
+msgid "Indonesian rupiah"
+msgstr ""
+
+msgid "Philippine peso"
+msgstr ""
+
+msgid "Brazilian real"
+msgstr ""
+
+msgid "Mexican peso"
+msgstr ""
+
+msgid "South African rand"
+msgstr ""
+
+msgid "The exchange-rate service returned no rates."
+msgstr ""
+
+msgid "Automatic rates are official rates, which are far from the free-market rate for the rial and toman. Enter your rates by hand."
+msgstr ""
+
+#, php-format
+msgid "The exchange-rate service does not know your shop currency (%s). Enter rates by hand."
+msgstr ""
+
+msgid "Rival prices"
+msgstr ""
+
+msgid "Paste the link of this same product on competitor sites. The price is read from the page's product data (the same data Google uses), so most shops work without any setup."
+msgstr ""
+
+msgid "Competitor product link"
+msgstr ""
+
+msgid "Name (optional)"
+msgstr ""
+
+msgid "Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, your shop currency is assumed."
+msgstr ""
+
+msgid "Currency"
+msgstr ""
+
+#, php-format
+msgid "The competitor price is multiplied by this number before comparing, for example 1.1 if the site shows prices without a 10% tax. Leave it at 1 in most cases."
+msgstr ""
+
+msgid "Price × "
+msgstr ""
+
+msgid "+ Add competitor"
+msgstr ""
+
+msgid "Prices by market"
+msgstr ""
+
+msgid "Rivals are grouped by the currency they sell in and compared in that currency. Set your own price for each foreign market; without it, your shop price is converted with your exchange rates (≈)."
+msgstr ""
+
+msgid "Save the product first if you changed the links."
+msgstr ""
+
+msgid "Your price:"
+msgstr ""
+
+msgid "shop price"
+msgstr ""
+
+#, php-format
+msgid "Your price in %s:"
+msgstr ""
+
+msgid "(empty: converted from your shop price)"
+msgstr ""
+
+msgid "(set a price or an exchange rate to compare)"
+msgstr ""
+
+msgid "Auto-detect"
+msgstr ""
+
+msgid "Price history"
+msgstr ""
+
+msgid "Twice a day"
+msgstr ""
+
+msgid "Once a day"
+msgstr ""
+
+msgid "Once a week"
+msgstr ""
+
+msgid "Only when I click \"Check now\""
+msgstr ""
+
+msgid "Rival Price Watch needs WooCommerce to be installed and active."
+msgstr ""
+
+#, php-format
+msgid "Checked %d competitor link."
+msgid_plural "Checked %d competitor links."
+msgstr[0] ""
+msgstr[1] ""
+
+#, php-format
+msgid "%d more is being checked in the background; refresh in a minute."
+msgid_plural "%d more are being checked in the background; refresh in a minute."
+msgstr[0] ""
+msgstr[1] ""
+
+#, php-format
+msgid "Rival Price Watch: a competitor is cheaper on %d product"
+msgid_plural "Rival Price Watch: competitors are cheaper on %d products"
+msgstr[0] ""
+msgstr[1] ""

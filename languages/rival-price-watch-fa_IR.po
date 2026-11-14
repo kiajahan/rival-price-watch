@@ -1,0 +1,449 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Rival Price Watch 0.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fa_IR\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Domain: rival-price-watch\n"
+
+msgid "Rival Price Watch"
+msgstr "ردیاب قیمت رقبا"
+
+msgid "Track competitor prices for your WooCommerce products. Add competitor product links, get daily price checks, price history and email alerts when a rival is cheaper."
+msgstr "قیمت رقبا را برای محصولات ووکامرس خود دنبال کنید. لینک همین محصول در سایت رقبا را اضافه کنید تا قیمت‌ها هر روز بررسی شوند، تاریخچه قیمت ذخیره شود و هر وقت رقیبی ارزان‌تر شد ایمیل بگیرید."
+
+msgid "Rival Prices"
+msgstr "قیمت رقبا"
+
+msgid "Open"
+msgstr "باز کردن"
+
+msgid "Remove"
+msgstr "حذف"
+
+msgid "You are not allowed to do this."
+msgstr "شما اجازه انجام این کار را ندارید."
+
+msgid "Could not download exchange rates."
+msgstr "دریافت نرخ‌های تبدیل ممکن نشد."
+
+msgid "Exchange rates updated."
+msgstr "نرخ‌های تبدیل به‌روز شد."
+
+msgid "Exchange rates saved."
+msgstr "نرخ‌های تبدیل ذخیره شد."
+
+msgid "Checking started. Large catalogues are checked in small batches in the background; refresh this page in a few minutes."
+msgstr "بررسی شروع شد. فروشگاه‌های بزرگ در دسته‌های کوچک و در پس‌زمینه بررسی می‌شوند؛ چند دقیقه دیگر این صفحه را تازه کنید."
+
+msgid "Overview"
+msgstr "نمای کلی"
+
+msgid "Settings"
+msgstr "تنظیمات"
+
+#, php-format
+msgid "Checking in progress: %d links left."
+msgstr "در حال بررسی: %d لینک مانده است."
+
+#, php-format
+msgid "Next automatic check: %s"
+msgstr "بررسی خودکار بعدی: %s"
+
+msgid "Automatic checks are off."
+msgstr "بررسی خودکار خاموش است."
+
+msgid "Check all now"
+msgstr "بررسی همه، همین حالا"
+
+msgid "Market"
+msgstr "بازار"
+
+msgid "All markets (converted to shop currency)"
+msgstr "همه بازارها (تبدیل به واحد پول فروشگاه)"
+
+msgid "Show all products"
+msgstr "نمایش همه محصولات"
+
+msgid "Only where a rival is cheaper"
+msgstr "فقط جایی که رقیب ارزان‌تر است"
+
+msgid "No competitor links yet"
+msgstr "هنوز لینک رقیبی اضافه نشده"
+
+msgid "Open any product, find the \"Rival prices\" box, and paste the links of the same product on competitor sites. Prices are then checked automatically."
+msgstr "یک محصول را باز کنید، کادر «قیمت رقبا» را پیدا کنید و لینک همین محصول را در سایت رقبا در آن بگذارید. از آن به بعد قیمت‌ها خودکار بررسی می‌شوند."
+
+msgid "Product"
+msgstr "محصول"
+
+msgid "Your price"
+msgstr "قیمت شما"
+
+msgid "Cheapest rival"
+msgstr "ارزان‌ترین رقیب"
+
+msgid "Difference"
+msgstr "اختلاف"
+
+msgid "All rivals"
+msgstr "همه رقبا"
+
+msgid "Last checked"
+msgstr "آخرین بررسی"
+
+msgid "Never"
+msgstr "هرگز"
+
+msgid "Check now"
+msgstr "بررسی همین حالا"
+
+#, php-format
+msgid "Rival %s%% cheaper"
+msgstr "رقیب %s٪ ارزان‌تر"
+
+#, php-format
+msgid "You are %s%% cheaper"
+msgstr "شما %s٪ ارزان‌ترید"
+
+msgid "Same price"
+msgstr "قیمت برابر"
+
+msgid "not checked yet"
+msgstr "هنوز بررسی نشده"
+
+msgid "out of stock"
+msgstr "ناموجود"
+
+msgid "needs an exchange rate"
+msgstr "نرخ تبدیل لازم است"
+
+msgid "no price found"
+msgstr "قیمتی پیدا نشد"
+
+msgid "error"
+msgstr "خطا"
+
+#, php-format
+msgid "%s ago"
+msgstr "%s پیش"
+
+msgid "Check prices"
+msgstr "بررسی قیمت‌ها"
+
+msgid "Uses WP-Cron, which runs when someone visits your site. On quiet sites, set up a real server cron job for exact timing."
+msgstr "از WP-Cron استفاده می‌شود که با بازدید از سایت اجرا می‌شود. اگر سایت بازدید کمی دارد، برای زمان‌بندی دقیق یک کران‌جاب واقعی روی سرور تنظیم کنید."
+
+msgid "Email alerts"
+msgstr "هشدار ایمیلی"
+
+msgid "Email me when a competitor becomes cheaper than me"
+msgstr "وقتی رقیبی از من ارزان‌تر شد به من ایمیل بزن"
+
+msgid "Alert email address"
+msgstr "نشانی ایمیل هشدار"
+
+msgid "One email per check run, listing every product that changed. You are not emailed again until the price changes."
+msgstr "در هر نوبت بررسی فقط یک ایمیل با فهرست همه محصولات تغییرکرده فرستاده می‌شود. تا قیمت دوباره عوض نشود ایمیل تکراری نمی‌گیرید."
+
+msgid "Pause between requests"
+msgstr "مکث بین درخواست‌ها"
+
+msgid "seconds"
+msgstr "ثانیه"
+
+msgid "A pause between pages keeps checks gentle on competitor sites and lowers the chance of being blocked."
+msgstr "مکث بین صفحه‌ها فشار کمتری به سایت رقبا می‌آورد و احتمال مسدود شدن را کم می‌کند."
+
+msgid "Keep price history for"
+msgstr "نگه‌داشتن تاریخچه قیمت به مدت"
+
+msgid "days"
+msgstr "روز"
+
+msgid "Exchange rates"
+msgstr "نرخ تبدیل ارز"
+
+#, php-format
+msgid "Rival prices in another currency are converted to your shop currency (%s) before comparing. Fill in only the currencies your competitors use; leave the rest empty."
+msgstr "قیمت رقبایی که با ارز دیگری می‌فروشند، پیش از مقایسه به واحد پول فروشگاه شما (%s) تبدیل می‌شود. فقط ارزهایی را که رقبایتان استفاده می‌کنند پر کنید و بقیه را خالی بگذارید."
+
+msgid "Rial and toman are converted automatically (1 toman = 10 rials)."
+msgstr "ریال و تومان خودکار به هم تبدیل می‌شوند (هر تومان = ۱۰ ریال)."
+
+#, php-format
+msgid "Official rates downloaded on %s."
+msgstr "نرخ‌های رسمی در %s دریافت شد."
+
+#, php-format
+msgid "Last saved on %s."
+msgstr "آخرین ذخیره: %s"
+
+msgid "Fill in today's official rates"
+msgstr "پر کردن با نرخ رسمی امروز"
+
+msgid "From the free open.er-api.com service. Only sent when you click."
+msgstr "از سرویس رایگان open.er-api.com. فقط وقتی کلیک کنید درخواست فرستاده می‌شود."
+
+msgid "Your shop uses the rial or toman. Official rates are far from the free-market rate, so enter the market rate for each currency yourself."
+msgstr "فروشگاه شما با ریال یا تومان کار می‌کند. نرخ رسمی با نرخ بازار آزاد فاصله زیادی دارد، پس نرخ بازار هر ارز را خودتان وارد کنید."
+
+msgid "Save exchange rates"
+msgstr "ذخیره نرخ‌های تبدیل"
+
+#, php-format
+msgid "The page answered with HTTP %d."
+msgstr "صفحه با کد HTTP %d پاسخ داد."
+
+msgid "The site may be blocking automatic checks."
+msgstr "ممکن است آن سایت بررسی خودکار را مسدود کرده باشد."
+
+msgid "No price found on the page. The site does not publish price data that can be read automatically."
+msgstr "قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند."
+
+#, php-format
+msgid "This site sells in %1$s. Add a %1$s to %2$s exchange rate in Settings to compare it."
+msgstr "این سایت با %1$s می‌فروشد. برای مقایسه، نرخ تبدیل %1$s به %2$s را در تنظیمات وارد کنید."
+
+#, php-format
+msgid "- %1$s: your price %2$s, %3$s sells it for %4$s (%5$s)"
+msgstr "- %1$s: قیمت شما %2$s، %3$s آن را %4$s می‌فروشد (%5$s)"
+
+msgid "These products are now cheaper at a competitor:"
+msgstr "این محصولات اکنون نزد یک رقیب ارزان‌ترند:"
+
+msgid "US dollar"
+msgstr "دلار آمریکا"
+
+msgid "Euro"
+msgstr "یورو"
+
+msgid "British pound"
+msgstr "پوند انگلیس"
+
+msgid "Japanese yen"
+msgstr "ین ژاپن"
+
+msgid "Chinese yuan"
+msgstr "یوان چین"
+
+msgid "Swiss franc"
+msgstr "فرانک سوئیس"
+
+msgid "Canadian dollar"
+msgstr "دلار کانادا"
+
+msgid "Australian dollar"
+msgstr "دلار استرالیا"
+
+msgid "New Zealand dollar"
+msgstr "دلار نیوزیلند"
+
+msgid "Hong Kong dollar"
+msgstr "دلار هنگ‌کنگ"
+
+msgid "Singapore dollar"
+msgstr "دلار سنگاپور"
+
+msgid "South Korean won"
+msgstr "وون کره جنوبی"
+
+msgid "Indian rupee"
+msgstr "روپیه هند"
+
+msgid "Pakistani rupee"
+msgstr "روپیه پاکستان"
+
+msgid "Afghan afghani"
+msgstr "افغانی افغانستان"
+
+msgid "Iranian rial"
+msgstr "ریال ایران"
+
+msgid "Iranian toman"
+msgstr "تومان ایران"
+
+msgid "Iraqi dinar"
+msgstr "دینار عراق"
+
+msgid "UAE dirham"
+msgstr "درهم امارات"
+
+msgid "Saudi riyal"
+msgstr "ریال عربستان"
+
+msgid "Qatari riyal"
+msgstr "ریال قطر"
+
+msgid "Kuwaiti dinar"
+msgstr "دینار کویت"
+
+msgid "Bahraini dinar"
+msgstr "دینار بحرین"
+
+msgid "Omani rial"
+msgstr "ریال عمان"
+
+msgid "Turkish lira"
+msgstr "لیر ترکیه"
+
+msgid "Azerbaijani manat"
+msgstr "منات آذربایجان"
+
+msgid "Armenian dram"
+msgstr "درام ارمنستان"
+
+msgid "Georgian lari"
+msgstr "لاری گرجستان"
+
+msgid "Russian ruble"
+msgstr "روبل روسیه"
+
+msgid "Ukrainian hryvnia"
+msgstr "گریونا اوکراین"
+
+msgid "Israeli shekel"
+msgstr "شکل اسرائیل"
+
+msgid "Egyptian pound"
+msgstr "پوند مصر"
+
+msgid "Swedish krona"
+msgstr "کرون سوئد"
+
+msgid "Norwegian krone"
+msgstr "کرون نروژ"
+
+msgid "Danish krone"
+msgstr "کرون دانمارک"
+
+msgid "Polish zloty"
+msgstr "زلوتی لهستان"
+
+msgid "Czech koruna"
+msgstr "کرون چک"
+
+msgid "Hungarian forint"
+msgstr "فورینت مجارستان"
+
+msgid "Malaysian ringgit"
+msgstr "رینگیت مالزی"
+
+msgid "Thai baht"
+msgstr "بات تایلند"
+
+msgid "Indonesian rupiah"
+msgstr "روپیه اندونزی"
+
+msgid "Philippine peso"
+msgstr "پزو فیلیپین"
+
+msgid "Brazilian real"
+msgstr "رئال برزیل"
+
+msgid "Mexican peso"
+msgstr "پزو مکزیک"
+
+msgid "South African rand"
+msgstr "راند آفریقای جنوبی"
+
+msgid "The exchange-rate service returned no rates."
+msgstr "سرویس نرخ ارز هیچ نرخی برنگرداند."
+
+msgid "Automatic rates are official rates, which are far from the free-market rate for the rial and toman. Enter your rates by hand."
+msgstr "نرخ‌های خودکار نرخ رسمی هستند که برای ریال و تومان با نرخ بازار آزاد فاصله زیادی دارند. نرخ‌ها را دستی وارد کنید."
+
+#, php-format
+msgid "The exchange-rate service does not know your shop currency (%s). Enter rates by hand."
+msgstr "سرویس نرخ ارز واحد پول فروشگاه شما (%s) را نمی‌شناسد. نرخ‌ها را دستی وارد کنید."
+
+msgid "Rival prices"
+msgstr "قیمت رقبا"
+
+msgid "Paste the link of this same product on competitor sites. The price is read from the page's product data (the same data Google uses), so most shops work without any setup."
+msgstr "لینک همین محصول در سایت رقبا را اینجا بگذارید. قیمت از داده‌های محصولِ صفحه خوانده می‌شود (همان داده‌ای که گوگل استفاده می‌کند)، پس بیشتر فروشگاه‌ها بدون هیچ تنظیمی کار می‌کنند."
+
+msgid "Competitor product link"
+msgstr "لینک محصول رقیب"
+
+msgid "Name (optional)"
+msgstr "نام (اختیاری)"
+
+msgid "Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, your shop currency is assumed."
+msgstr "این سایت با چه واحد پولی می‌فروشد. «تشخیص خودکار» آن را از صفحه می‌خواند؛ اگر صفحه چیزی نگوید، واحد پول فروشگاه شما در نظر گرفته می‌شود."
+
+msgid "Currency"
+msgstr "واحد پول"
+
+#, php-format
+msgid "The competitor price is multiplied by this number before comparing, for example 1.1 if the site shows prices without a 10% tax. Leave it at 1 in most cases."
+msgstr "قیمت رقیب پیش از مقایسه در این عدد ضرب می‌شود؛ مثلاً 1.1 اگر آن سایت قیمت را بدون ۱۰٪ مالیات نشان می‌دهد. در بیشتر موارد آن را 1 بگذارید."
+
+msgid "Price × "
+msgstr "قیمت × "
+
+msgid "+ Add competitor"
+msgstr "+ افزودن رقیب"
+
+msgid "Prices by market"
+msgstr "قیمت‌ها به تفکیک بازار"
+
+msgid "Rivals are grouped by the currency they sell in and compared in that currency. Set your own price for each foreign market; without it, your shop price is converted with your exchange rates (≈)."
+msgstr "رقبا بر اساس واحد پولی که با آن می‌فروشند گروه‌بندی و در همان واحد پول مقایسه می‌شوند. برای هر بازار خارجی قیمت خودتان را وارد کنید؛ در غیر این صورت قیمت فروشگاه با نرخ تبدیل شما محاسبه می‌شود (≈)."
+
+msgid "Save the product first if you changed the links."
+msgstr "اگر لینک‌ها را تغییر داده‌اید، اول محصول را به‌روزرسانی کنید."
+
+msgid "Your price:"
+msgstr "قیمت شما:"
+
+msgid "shop price"
+msgstr "قیمت فروشگاه"
+
+#, php-format
+msgid "Your price in %s:"
+msgstr "قیمت شما به %s:"
+
+msgid "(empty: converted from your shop price)"
+msgstr "(خالی: از قیمت فروشگاه تبدیل شده)"
+
+msgid "(set a price or an exchange rate to compare)"
+msgstr "(برای مقایسه، قیمت یا نرخ تبدیل وارد کنید)"
+
+msgid "Auto-detect"
+msgstr "تشخیص خودکار"
+
+msgid "Price history"
+msgstr "تاریخچه قیمت"
+
+msgid "Twice a day"
+msgstr "روزی دو بار"
+
+msgid "Once a day"
+msgstr "روزی یک بار"
+
+msgid "Once a week"
+msgstr "هفته‌ای یک بار"
+
+msgid "Only when I click \"Check now\""
+msgstr "فقط وقتی «بررسی همین حالا» را بزنم"
+
+msgid "Rival Price Watch needs WooCommerce to be installed and active."
+msgstr "افزونه ردیاب قیمت رقبا به ووکامرس نصب‌شده و فعال نیاز دارد."
+
+#, php-format
+msgid "Checked %d competitor link."
+msgid_plural "Checked %d competitor links."
+msgstr[0] "تعداد %d لینک رقیب بررسی شد."
+
+#, php-format
+msgid "%d more is being checked in the background; refresh in a minute."
+msgid_plural "%d more are being checked in the background; refresh in a minute."
+msgstr[0] "%d لینک دیگر در پس‌زمینه بررسی می‌شود؛ یک دقیقه دیگر صفحه را تازه کنید."
+
+#, php-format
+msgid "Rival Price Watch: a competitor is cheaper on %d product"
+msgid_plural "Rival Price Watch: competitors are cheaper on %d products"
+msgstr[0] "ردیاب قیمت رقبا: رقبا در %d محصول ارزان‌ترند"

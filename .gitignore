@@ -1,0 +1,8 @@
+# Build output and local files
+*.zip
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+.idea/
+.vscode/
