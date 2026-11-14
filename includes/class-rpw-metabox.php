@@ -48,6 +48,7 @@ class RPW_Metabox {
 				<tr>
 					<th><?php esc_html_e( 'Competitor product link', 'rival-price-watch' ); ?></th>
 					<th><?php esc_html_e( 'Name (optional)', 'rival-price-watch' ); ?></th>
+					<th title="<?php esc_attr_e( 'Only needed when the competitor page lists several versions of the product. Type the SKU or barcode of the right one, or words that describe it, for example: 256GB black. Leave empty to use the first product on the page.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Variant (optional)', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th title="<?php esc_attr_e( 'Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, your shop currency is assumed.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Currency', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th title="<?php esc_attr_e( 'The competitor price is multiplied by this number before comparing, for example 1.1 if the site shows prices without a 10% tax. Leave it at 1 in most cases.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Price × ', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th></th>
@@ -63,8 +64,10 @@ class RPW_Metabox {
 			</tbody>
 		</table>
 		<template id="rpw-row-template"><?php self::row( self::blank() ); ?></template>
+		<div class="rpw-preview" hidden aria-live="polite"></div>
 		<p>
 			<button type="button" class="button rpw-add"><?php esc_html_e( '+ Add competitor', 'rival-price-watch' ); ?></button>
+			<span class="rpw-muted"><?php esc_html_e( 'Use "Test" to see what is read from a link before you save.', 'rival-price-watch' ); ?></span>
 		</p>
 
 		<?php if ( $links ) : ?>
@@ -127,12 +130,12 @@ class RPW_Metabox {
 							echo '<span class="rpw-muted">' . esc_html__( 'not checked yet', 'rival-price-watch' ) . '</span>';
 						} elseif ( in_array( $last->status, array( 'ok', 'norate' ), true ) && ( null !== $last->raw_price || null !== $last->price ) ) {
 							$native = null !== $last->raw_price ? (float) $last->raw_price : (float) $last->price;
-							echo wp_kses_post( RPW_Checker::money( $native, $cur ) );
+							echo '<span title="' . esc_attr( 'ok' === $last->status ? $last->message : '' ) . '">' . wp_kses_post( RPW_Checker::money( $native, $cur ) ) . '</span>';
 							if ( '0' === (string) $last->in_stock ) {
 								echo ' <span class="rpw-muted">(' . esc_html__( 'out of stock', 'rival-price-watch' ) . ')</span>';
 							}
 						} else {
-							echo '<span class="rpw-error" title="' . esc_attr( $last->message ) . '">' . esc_html( 'noprice' === $last->status ? __( 'no price found', 'rival-price-watch' ) : __( 'error', 'rival-price-watch' ) ) . '</span>';
+							echo '<span class="rpw-error" title="' . esc_attr( $last->message ) . '">' . esc_html( RPW_Admin::status_label( $last->status ) ) . '</span>';
 						}
 						?>
 					</li>
@@ -159,6 +162,7 @@ class RPW_Metabox {
 			'label'    => '',
 			'factor'   => 1,
 			'currency' => '',
+			'match'    => '',
 		);
 	}
 
@@ -173,6 +177,7 @@ class RPW_Metabox {
 		<tr>
 			<td><input type="url" class="widefat" name="rpw_url[]" value="<?php echo esc_attr( $l['url'] ); ?>" placeholder="https://"></td>
 			<td><input type="text" class="widefat" name="rpw_label[]" value="<?php echo esc_attr( $l['label'] ); ?>"></td>
+			<td><input type="text" class="widefat" name="rpw_match[]" maxlength="100" value="<?php echo esc_attr( isset( $l['match'] ) ? $l['match'] : '' ); ?>"></td>
 			<td>
 				<select name="rpw_currency[]">
 					<option value=""><?php esc_html_e( 'Auto-detect', 'rival-price-watch' ); ?></option>
@@ -182,7 +187,7 @@ class RPW_Metabox {
 				</select>
 			</td>
 			<td><input type="number" class="small-text" step="any" min="0" name="rpw_factor[]" value="<?php echo esc_attr( (string) $l['factor'] ); ?>"></td>
-			<td><button type="button" class="button-link rpw-remove" aria-label="<?php esc_attr_e( 'Remove', 'rival-price-watch' ); ?>">&times;</button></td>
+			<td class="rpw-row-actions"><button type="button" class="button button-small rpw-test"><?php esc_html_e( 'Test', 'rival-price-watch' ); ?></button> <button type="button" class="button-link rpw-remove" aria-label="<?php esc_attr_e( 'Remove', 'rival-price-watch' ); ?>">&times;</button></td>
 		</tr>
 		<?php
 	}
@@ -281,6 +286,7 @@ class RPW_Metabox {
 		$urls    = isset( $_POST['rpw_url'] ) ? (array) wp_unslash( $_POST['rpw_url'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized below.
 		$labels  = isset( $_POST['rpw_label'] ) ? (array) wp_unslash( $_POST['rpw_label'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$factors = isset( $_POST['rpw_factor'] ) ? (array) wp_unslash( $_POST['rpw_factor'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$matches = isset( $_POST['rpw_match'] ) ? (array) wp_unslash( $_POST['rpw_match'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$curs    = isset( $_POST['rpw_currency'] ) ? (array) wp_unslash( $_POST['rpw_currency'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$valid   = RPW_Currency::codes();
 
@@ -310,6 +316,7 @@ class RPW_Metabox {
 				'label'    => isset( $labels[ $i ] ) ? sanitize_text_field( (string) $labels[ $i ] ) : '',
 				'factor'   => $factor > 0 ? $factor : 1.0,
 				'currency' => isset( $valid[ $cur ] ) ? $cur : '',
+				'match'    => isset( $matches[ $i ] ) ? substr( sanitize_text_field( (string) $matches[ $i ] ), 0, 100 ) : '',
 			);
 			if ( count( $links ) >= self::MAX_LINKS ) {
 				break;
@@ -341,6 +348,7 @@ class RPW_Metabox {
 		} else {
 			delete_post_meta( $post_id, '_rpw_links' );
 			delete_post_meta( $post_id, '_rpw_alerted' );
+			delete_post_meta( $post_id, '_rpw_pending' );
 		}
 	}
 }

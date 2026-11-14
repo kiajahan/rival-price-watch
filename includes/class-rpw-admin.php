@@ -25,6 +25,7 @@ class RPW_Admin {
 		add_action( 'admin_post_rpw_run_all', array( __CLASS__, 'handle_run_all' ) );
 		add_action( 'admin_post_rpw_save_rates', array( __CLASS__, 'handle_save_rates' ) );
 		add_action( 'admin_post_rpw_fetch_rates', array( __CLASS__, 'handle_fetch_rates' ) );
+		add_action( 'wp_ajax_rpw_preview', array( __CLASS__, 'handle_preview' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( RPW_FILE ), array( __CLASS__, 'action_links' ) );
 	}
@@ -87,8 +88,13 @@ class RPW_Admin {
 			'rpw-admin',
 			'rpwAdmin',
 			array(
-				'remove' => __( 'Remove', 'rival-price-watch' ),
-				'max'    => RPW_Metabox::MAX_LINKS,
+				'remove'  => __( 'Remove', 'rival-price-watch' ),
+				'max'     => RPW_Metabox::MAX_LINKS,
+				'ajax'    => admin_url( 'admin-ajax.php' ),
+				'nonce'   => wp_create_nonce( 'rpw_preview' ),
+				'testing' => __( 'Reading the page…', 'rival-price-watch' ),
+				'failed'  => __( 'The test could not be run. Please try again.', 'rival-price-watch' ),
+				'nourl'   => __( 'Paste a link first.', 'rival-price-watch' ),
 			)
 		);
 	}
@@ -114,6 +120,93 @@ class RPW_Admin {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * "Test" button in the product box: read a competitor page and report exactly
+	 * what was detected, without saving anything.
+	 */
+	public static function handle_preview() {
+		check_ajax_referer( 'rpw_preview', 'nonce' );
+		$pid = isset( $_POST['product'] ) ? absint( $_POST['product'] ) : 0;
+		if ( ! current_user_can( 'manage_woocommerce' ) || ( $pid && ! current_user_can( 'edit_post', $pid ) ) ) {
+			wp_send_json_error( array( 'message' => __( 'You are not allowed to do this.', 'rival-price-watch' ) ), 403 );
+		}
+		$url = isset( $_POST['url'] ) ? esc_url_raw( trim( (string) wp_unslash( $_POST['url'] ) ), array( 'http', 'https' ) ) : '';
+		if ( '' === $url || ! wp_http_validate_url( $url ) ) {
+			wp_send_json_error( array( 'message' => __( 'This is not a link that can be checked.', 'rival-price-watch' ) ) );
+		}
+		$cur    = isset( $_POST['currency'] ) ? strtoupper( sanitize_key( wp_unslash( $_POST['currency'] ) ) ) : '';
+		$factor = isset( $_POST['factor'] ) ? (float) str_replace( ',', '.', sanitize_text_field( wp_unslash( $_POST['factor'] ) ) ) : 1.0;
+		$link   = array(
+			'url'      => $url,
+			'label'    => '',
+			'factor'   => $factor > 0 ? $factor : 1.0,
+			'currency' => isset( RPW_Currency::codes()[ $cur ] ) ? $cur : '',
+			'match'    => isset( $_POST['match'] ) ? substr( sanitize_text_field( wp_unslash( $_POST['match'] ) ), 0, 100 ) : '',
+		);
+
+		// Shorter timeout while the admin waits.
+		$short = static function ( $args ) {
+			$args['timeout'] = min( 10, (int) $args['timeout'] );
+			return $args;
+		};
+		add_filter( 'rpw_request_args', $short, 99 );
+		$result = RPW_Checker::inspect_link( $pid, $link );
+		remove_filter( 'rpw_request_args', $short, 99 );
+
+		$row   = $result['row'];
+		$found = $result['found'];
+		$lines = array();
+		$warn  = array();
+		$ok    = in_array( $row['status'], array( 'ok', 'norate' ), true );
+
+		if ( $ok ) {
+			/* translators: %s: price with currency. */
+			$lines[] = sprintf( __( 'Price: %s', 'rival-price-watch' ), RPW_Checker::plain_price( $row['raw_price'], $row['raw_currency'] ) );
+			if ( 'ok' === $row['status'] && $row['raw_currency'] !== RPW_Currency::shop() ) {
+				/* translators: %s: price in the shop currency. */
+				$lines[] = sprintf( __( 'In your currency: %s', 'rival-price-watch' ), RPW_Checker::plain_price( $row['price'] ) );
+			}
+			if ( null === $row['in_stock'] ) {
+				$stock = __( 'not stated on the page', 'rival-price-watch' );
+			} else {
+				$stock = $row['in_stock'] ? __( 'in stock', 'rival-price-watch' ) : __( 'out of stock', 'rival-price-watch' );
+			}
+			/* translators: %s: in stock / out of stock. */
+			$lines[] = sprintf( __( 'Stock: %s', 'rival-price-watch' ), $stock );
+			if ( ! empty( $found['name'] ) ) {
+				/* translators: %s: product name (and code) found on the competitor page. */
+				$lines[] = sprintf( __( 'Product on the page: %s', 'rival-price-watch' ), $found['name'] . ( ! empty( $found['sku'] ) ? ' [' . $found['sku'] . ']' : '' ) );
+			}
+			/* translators: %s: where the price was read from, e.g. json-ld. */
+			$lines[] = sprintf( __( 'Read from: %s', 'rival-price-watch' ), $found['source'] );
+
+			if ( '' === $link['currency'] && empty( $found['currency'] ) ) {
+				/* translators: %s: currency code. */
+				$warn[] = sprintf( __( 'The page does not say which currency this is, so your shop currency (%s) was assumed. Choose the currency for this link if that is wrong.', 'rival-price-watch' ), RPW_Currency::shop() );
+			}
+			if ( '' === $link['match'] && (int) $found['candidates'] > 1 ) {
+				/* translators: %d: number of offers. */
+				$warn[] = sprintf( __( 'This page lists %d offers or versions. The cheapest one in stock of the first product was used. Fill in "Variant" to pick the right one.', 'rival-price-watch' ), (int) $found['candidates'] );
+			}
+			if ( '' !== $link['match'] && null === $found['matched'] ) {
+				$warn[] = __( 'This page does not describe its versions in a way that can be read, so the variant text could not be checked.', 'rival-price-watch' );
+			}
+			if ( 'norate' === $row['status'] ) {
+				$warn[] = $row['message'];
+			}
+		} else {
+			$warn[] = $row['message'];
+		}
+
+		wp_send_json_success(
+			array(
+				'ok'    => $ok,
+				'lines' => $lines,
+				'warn'  => $warn,
+			)
+		);
 	}
 
 	/**
@@ -165,6 +258,13 @@ class RPW_Admin {
 	 */
 	public static function notices() {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- display only.
+		if ( isset( $_GET['page'] ) && self::PAGE === $_GET['page'] && current_user_can( 'manage_woocommerce' ) ) {
+			$mail_error = get_option( 'rpw_alert_error', '' );
+			if ( $mail_error ) {
+				/* translators: %s: the reason reported by WordPress. */
+				echo '<div class="notice notice-warning"><p>' . esc_html( sprintf( __( 'The last alert email could not be sent (%s). The alerts are kept and sending will be tried again.', 'rival-price-watch' ), $mail_error ) ) . '</p></div>';
+			}
+		}
 		if ( isset( $_GET['rpw_rates'] ) ) {
 			$state = sanitize_key( wp_unslash( $_GET['rpw_rates'] ) );
 			if ( 'failed' === $state ) {
@@ -230,6 +330,10 @@ class RPW_Admin {
 
 	/**
 	 * Overview table.
+	 *
+	 * Filtering and sorting use RPW_Checker::index(), which reads every watched
+	 * product with two queries. Full product data is loaded only for the rows of
+	 * the page being shown.
 	 */
 	private static function render_overview() {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only filters.
@@ -237,16 +341,48 @@ class RPW_Admin {
 		$paged        = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
 		$cur          = isset( $_GET['cur'] ) ? strtoupper( sanitize_key( wp_unslash( $_GET['cur'] ) ) ) : '';
 		// phpcs:enable
-		$ids      = RPW_Checker::watched_products();
+		$index    = RPW_Checker::index();
 		$per_page = 30;
+		$shop     = RPW_Currency::shop();
 
-		$summaries  = array();
+		$order      = array();
 		$currencies = array();
-		foreach ( $ids as $pid ) {
-			$markets    = RPW_Checker::markets( $pid );
-			$currencies = array_merge( $currencies, array_keys( $markets ) );
+		foreach ( $index as $pid => $item ) {
+			foreach ( $item['links'] as $link ) {
+				$last = $item['latest'][ RPW_DB::hash( $link['url'] ) ] ?? null;
+				$c    = $last && ! empty( $last->raw_currency ) ? strtoupper( $last->raw_currency ) : ( '' !== $link['currency'] ? $link['currency'] : $shop );
+
+				$currencies[ $c ] = true;
+			}
 			if ( '' !== $cur ) {
 				// One market: compare in that currency only.
+				$markets = RPW_Checker::markets_from( $item['own'], $item['links'], $item['latest'], $item['set'] );
+				if ( ! isset( $markets[ $cur ] ) ) {
+					continue;
+				}
+				$diff = $markets[ $cur ]['diff'];
+			} else {
+				$diff = RPW_Checker::summary_from( $item['own'], $item['links'], $item['latest'] )['diff'];
+			}
+			if ( $only_cheaper && ( null === $diff || $diff >= 0 ) ) {
+				continue;
+			}
+			$order[ $pid ] = null === $diff ? PHP_INT_MAX : $diff;
+		}
+		// Most undercut first.
+		asort( $order );
+		$total    = count( $order );
+		$pages    = max( 1, (int) ceil( $total / $per_page ) );
+		$paged    = min( $paged, $pages );
+		$page_ids = array_keys( array_slice( $order, ( $paged - 1 ) * $per_page, $per_page, true ) );
+
+		$summaries = array();
+		if ( $page_ids ) {
+			_prime_post_caches( $page_ids, false, true );
+		}
+		foreach ( $page_ids as $pid ) {
+			if ( '' !== $cur ) {
+				$markets = RPW_Checker::markets( $pid );
 				if ( ! isset( $markets[ $cur ] ) ) {
 					continue;
 				}
@@ -265,37 +401,21 @@ class RPW_Admin {
 			} else {
 				$s = RPW_Checker::summary( $pid );
 			}
-			if ( ! $s['product'] ) {
-				continue;
+			if ( $s['product'] ) {
+				$summaries[] = $s;
 			}
-			if ( $only_cheaper && ( null === $s['diff'] || $s['diff'] >= 0 ) ) {
-				continue;
-			}
-			$summaries[] = $s;
 		}
-		// Most undercut first.
-		usort(
-			$summaries,
-			static function ( $a, $b ) {
-				$da = null === $a['diff'] ? PHP_INT_MAX : $a['diff'];
-				$db = null === $b['diff'] ? PHP_INT_MAX : $b['diff'];
-				return $da <=> $db;
-			}
-		);
-		$total     = count( $summaries );
-		$pages     = max( 1, (int) ceil( $total / $per_page ) );
-		$summaries = array_slice( $summaries, ( $paged - 1 ) * $per_page, $per_page );
 
 		$next  = wp_next_scheduled( RPW_Checker::HOOK_RUN );
-		$queue = get_option( RPW_Checker::QUEUE, array() );
+		$queue = RPW_Checker::ensure_scheduled();
 		$base  = admin_url( 'admin.php?page=' . self::PAGE );
 		?>
 		<div class="rpw-bar">
 			<p>
 				<?php
-				if ( ! empty( $queue ) ) {
+				if ( $queue > 0 ) {
 					/* translators: %d: number of links left. */
-					echo esc_html( sprintf( __( 'Checking in progress: %d links left.', 'rival-price-watch' ), count( $queue ) ) );
+					echo esc_html( sprintf( __( 'Checking in progress: %d links left.', 'rival-price-watch' ), $queue ) );
 				} elseif ( $next ) {
 					/* translators: %s: date and time. */
 					echo esc_html( sprintf( __( 'Next automatic check: %s', 'rival-price-watch' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $next ) ) );
@@ -310,7 +430,7 @@ class RPW_Admin {
 				<?php if ( $only_cheaper ) : ?><input type="hidden" name="cheaper" value="1"><?php endif; ?>
 				<select name="cur" onchange="this.form.submit()" aria-label="<?php esc_attr_e( 'Market', 'rival-price-watch' ); ?>">
 					<option value=""><?php esc_html_e( 'All markets (converted to shop currency)', 'rival-price-watch' ); ?></option>
-					<?php foreach ( array_unique( $currencies ) as $c ) : ?>
+					<?php foreach ( array_keys( $currencies ) as $c ) : ?>
 						<option value="<?php echo esc_attr( $c ); ?>" <?php selected( $cur, $c ); ?>><?php echo esc_html( $c . ' · ' . RPW_Currency::name( $c ) ); ?></option>
 					<?php endforeach; ?>
 				</select>
@@ -322,7 +442,7 @@ class RPW_Admin {
 			<?php endif; ?>
 		</div>
 
-		<?php if ( empty( $ids ) ) : ?>
+		<?php if ( empty( $index ) ) : ?>
 			<div class="rpw-empty">
 				<h2><?php esc_html_e( 'No competitor links yet', 'rival-price-watch' ); ?></h2>
 				<p><?php esc_html_e( 'Open any product, find the "Rival prices" box, and paste the links of the same product on competitor sites. Prices are then checked automatically.', 'rival-price-watch' ); ?></p>
@@ -436,11 +556,27 @@ class RPW_Admin {
 			} elseif ( 'norate' === $last->status ) {
 				echo esc_html( (string) self::original_price( $last ) ) . ' <a class="rpw-error" title="' . esc_attr( $last->message ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&tab=settings#rpw-rates' ) ) . '">' . esc_html__( 'needs an exchange rate', 'rival-price-watch' ) . '</a>';
 			} else {
-				echo '<span class="rpw-error" title="' . esc_attr( $last->message ) . '">' . esc_html( 'noprice' === $last->status ? __( 'no price found', 'rival-price-watch' ) : __( 'error', 'rival-price-watch' ) ) . '</span>';
+				echo '<span class="rpw-error" title="' . esc_attr( $last->message ) . '">' . esc_html( self::status_label( $last->status ) ) . '</span>';
 			}
 			echo '</li>';
 		}
 		echo '</ul>';
+	}
+
+	/**
+	 * Short label for a check that did not give a price.
+	 *
+	 * @param string $status Row status.
+	 * @return string
+	 */
+	public static function status_label( $status ) {
+		if ( 'noprice' === $status ) {
+			return __( 'no price found', 'rival-price-watch' );
+		}
+		if ( 'nomatch' === $status ) {
+			return __( 'variant not found', 'rival-price-watch' );
+		}
+		return __( 'error', 'rival-price-watch' );
 	}
 
 	/**
@@ -497,6 +633,7 @@ class RPW_Admin {
 						<label><input type="checkbox" name="<?php echo esc_attr( $o ); ?>[alerts]" value="1" <?php checked( $s['alerts'], 1 ); ?>> <?php esc_html_e( 'Email me when a competitor becomes cheaper than me', 'rival-price-watch' ); ?></label>
 						<p><input type="email" class="regular-text" name="<?php echo esc_attr( $o ); ?>[alert_email]" value="<?php echo esc_attr( $s['alert_email'] ); ?>" aria-label="<?php esc_attr_e( 'Alert email address', 'rival-price-watch' ); ?>"></p>
 						<p class="description"><?php esc_html_e( 'One email per check run, listing every product that changed. You are not emailed again until the price changes.', 'rival-price-watch' ); ?></p>
+						<p><label><?php esc_html_e( 'Only when the competitor is cheaper by at least', 'rival-price-watch' ); ?> <input type="number" min="0" max="90" step="0.1" class="small-text" name="<?php echo esc_attr( $o ); ?>[alert_percent]" value="<?php echo esc_attr( (string) $s['alert_percent'] ); ?>"> %</label></p>
 					</td>
 				</tr>
 				<tr>

@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,9 @@ Most online shops publish their product data in a standard format (schema.org) s
 **Features**
 
 * Up to 10 competitor links per product
+* Pick the right version of a product (SKU, barcode, or words such as "256GB black") when a competitor page lists several
+* A "Test" button shows exactly what is read from a link before you save it
+* Optional alert threshold: only email when a rival is cheaper by at least X percent
 * Checks twice a day, daily, weekly or only on demand
 * Large catalogues are checked in small background batches
 * Price history chart on each product
@@ -74,6 +77,14 @@ This plugin connects to outside services only in these cases:
 
 That page does not publish price data in a standard format. A developer can add support with the `rpw_extracted_price` filter.
 
+= The price is from the wrong version of the product =
+
+Some pages list several versions (colours, storage sizes) of one product. Fill in the **Variant** field of that link with the SKU or barcode of the right version, or with words that describe it (for example `256GB black`). Click **Test** to see which product and price are read.
+
+= I did not get an alert email =
+
+If WordPress cannot send the email, the alert is kept and sending is tried again, and a notice on the Rival Prices page tells you why it failed. Check that your site can send email (an SMTP plugin usually fixes it).
+
 = A link shows "error" with HTTP 403 or 429 =
 
 The site is blocking automatic visits. Increase the pause between requests, or remove that link. The plugin will not try to bypass blocks.
@@ -101,6 +112,19 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.0 =
+* Fixed: prices with three decimals (for example 1.234 KWD) in meta tags and microdata were read as 1234.
+* Fixed: a nested offer lost its currency and its out-of-stock status.
+* Fixed: currency meta tags written with `name=` were ignored.
+* Fixed: alert emails could be lost. An alert is now marked as sent only after the email was really sent; failed emails are kept and tried again.
+* Fixed: "Check now" on one product did not send an alert when all links were checked during the click.
+* Fixed: two links that differ only by capital letters in the path were treated as one link.
+* Fixed: deleting the plugin left exchange rates and per-currency prices behind.
+* New: variant matching per link, and a "Test" button that previews what is read from a page.
+* New: background checks use a job table. Each result is saved at once, failed pages (timeouts, HTTP 429/5xx) are retried, and an interrupted run continues by itself.
+* New: alert threshold in percent.
+* Faster overview page on large catalogues.
 
 = 0.1.0 =
 * First release.

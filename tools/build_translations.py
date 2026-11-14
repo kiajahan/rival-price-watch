@@ -175,6 +175,54 @@ FA = {
     'Brazilian real': 'رئال برزیل',
     'Mexican peso': 'پزو مکزیک',
     'South African rand': 'راند آفریقای جنوبی',
+    'None of the %2$d offers on the page matches "%1$s". Check the variant text for this link.':
+        'هیچ\u200cکدام از %2$d پیشنهاد این صفحه با «%1$s» جور نیست. متن «مدل» این لینک را بررسی کنید.',
+    'The alert email address in Settings is not valid.':
+        'نشانی ایمیل هشدار در تنظیمات معتبر نیست.',
+    'WordPress could not send the email.':
+        'وردپرس نتوانست ایمیل را بفرستد.',
+    'Only needed when the competitor page lists several versions of the product. Type the SKU or barcode of the right one, or words that describe it, for example: 256GB black. Leave empty to use the first product on the page.':
+        'فقط وقتی لازم است که صفحه رقیب چند مدل از محصول را نشان می\u200cدهد. شناسه (SKU) یا بارکد مدل درست را بنویسید، یا چند کلمه که آن را مشخص کند، مثلاً: 256GB black. اگر خالی بماند، اولین محصول صفحه خوانده می\u200cشود.',
+    'Variant (optional)':
+        'مدل (اختیاری)',
+    'Use "Test" to see what is read from a link before you save.':
+        'پیش از ذخیره، با «آزمایش» ببینید از هر لینک چه چیزی خوانده می\u200cشود.',
+    'Test':
+        'آزمایش',
+    'Reading the page…':
+        'در حال خواندن صفحه…',
+    'The test could not be run. Please try again.':
+        'آزمایش انجام نشد. دوباره تلاش کنید.',
+    'Paste a link first.':
+        'اول یک لینک وارد کنید.',
+    'This is not a link that can be checked.':
+        'این لینک قابل بررسی نیست.',
+    'Price: %s':
+        'قیمت: %s',
+    'In your currency: %s':
+        'به واحد پول شما: %s',
+    'not stated on the page':
+        'در صفحه نوشته نشده',
+    'in stock':
+        'موجود',
+    'Stock: %s':
+        'موجودی: %s',
+    'Product on the page: %s':
+        'محصول در صفحه: %s',
+    'Read from: %s':
+        'خوانده\u200cشده از: %s',
+    'The page does not say which currency this is, so your shop currency (%s) was assumed. Choose the currency for this link if that is wrong.':
+        'صفحه نگفته این قیمت به چه واحد پولی است؛ برای همین واحد پول فروشگاه شما (%s) در نظر گرفته شد. اگر درست نیست، واحد پول این لینک را انتخاب کنید.',
+    'This page lists %d offers or versions. The cheapest one in stock of the first product was used. Fill in "Variant" to pick the right one.':
+        'این صفحه %d پیشنهاد یا مدل دارد. ارزان\u200cترین مدل موجودِ اولین محصول انتخاب شد. برای انتخاب مدل درست، خانه «مدل» را پر کنید.',
+    'This page does not describe its versions in a way that can be read, so the variant text could not be checked.':
+        'این صفحه مدل\u200cهایش را به شکلی که قابل خواندن باشد معرفی نکرده، پس متن «مدل» بررسی نشد.',
+    'The last alert email could not be sent (%s). The alerts are kept and sending will be tried again.':
+        'آخرین ایمیل هشدار فرستاده نشد (%s). هشدارها نگه داشته شده\u200cاند و دوباره برای ارسال تلاش می\u200cشود.',
+    'variant not found':
+        'مدل پیدا نشد',
+    'Only when the competitor is cheaper by at least':
+        'فقط وقتی رقیب دست\u200cکم این\u200cقدر ارزان\u200cتر است:',
 }
 FA_PLURAL = {
     ('%d more is being checked in the background; refresh in a minute.', '%d more are being checked in the background; refresh in a minute.'):
@@ -220,7 +268,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.1.0\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.0\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

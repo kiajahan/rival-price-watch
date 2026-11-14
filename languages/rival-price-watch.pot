@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Rival Price Watch 0.1.0\n"
+"Project-Id-Version: Rival Price Watch 0.2.0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -22,7 +22,63 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
+msgid "Reading the page…"
+msgstr ""
+
+msgid "The test could not be run. Please try again."
+msgstr ""
+
+msgid "Paste a link first."
+msgstr ""
+
 msgid "You are not allowed to do this."
+msgstr ""
+
+msgid "This is not a link that can be checked."
+msgstr ""
+
+#, php-format
+msgid "Price: %s"
+msgstr ""
+
+#, php-format
+msgid "In your currency: %s"
+msgstr ""
+
+msgid "not stated on the page"
+msgstr ""
+
+msgid "in stock"
+msgstr ""
+
+msgid "out of stock"
+msgstr ""
+
+#, php-format
+msgid "Stock: %s"
+msgstr ""
+
+#, php-format
+msgid "Product on the page: %s"
+msgstr ""
+
+#, php-format
+msgid "Read from: %s"
+msgstr ""
+
+#, php-format
+msgid "The page does not say which currency this is, so your shop currency (%s) was assumed. Choose the currency for this link if that is wrong."
+msgstr ""
+
+#, php-format
+msgid "This page lists %d offers or versions. The cheapest one in stock of the first product was used. Fill in \"Variant\" to pick the right one."
+msgstr ""
+
+msgid "This page does not describe its versions in a way that can be read, so the variant text could not be checked."
+msgstr ""
+
+#, php-format
+msgid "The last alert email could not be sent (%s). The alerts are kept and sending will be tried again."
 msgstr ""
 
 msgid "Could not download exchange rates."
@@ -113,13 +169,13 @@ msgstr ""
 msgid "not checked yet"
 msgstr ""
 
-msgid "out of stock"
-msgstr ""
-
 msgid "needs an exchange rate"
 msgstr ""
 
 msgid "no price found"
+msgstr ""
+
+msgid "variant not found"
 msgstr ""
 
 msgid "error"
@@ -145,6 +201,9 @@ msgid "Alert email address"
 msgstr ""
 
 msgid "One email per check run, listing every product that changed. You are not emailed again until the price changes."
+msgstr ""
+
+msgid "Only when the competitor is cheaper by at least"
 msgstr ""
 
 msgid "Pause between requests"
@@ -199,6 +258,10 @@ msgstr ""
 msgid "The site may be blocking automatic checks."
 msgstr ""
 
+#, php-format
+msgid "None of the %2$d offers on the page matches \"%1$s\". Check the variant text for this link."
+msgstr ""
+
 msgid "No price found on the page. The site does not publish price data that can be read automatically."
 msgstr ""
 
@@ -210,7 +273,13 @@ msgstr ""
 msgid "- %1$s: your price %2$s, %3$s sells it for %4$s (%5$s)"
 msgstr ""
 
+msgid "The alert email address in Settings is not valid."
+msgstr ""
+
 msgid "These products are now cheaper at a competitor:"
+msgstr ""
+
+msgid "WordPress could not send the email."
 msgstr ""
 
 msgid "US dollar"
@@ -370,6 +439,12 @@ msgstr ""
 msgid "Name (optional)"
 msgstr ""
 
+msgid "Only needed when the competitor page lists several versions of the product. Type the SKU or barcode of the right one, or words that describe it, for example: 256GB black. Leave empty to use the first product on the page."
+msgstr ""
+
+msgid "Variant (optional)"
+msgstr ""
+
 msgid "Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, your shop currency is assumed."
 msgstr ""
 
@@ -384,6 +459,9 @@ msgid "Price × "
 msgstr ""
 
 msgid "+ Add competitor"
+msgstr ""
+
+msgid "Use \"Test\" to see what is read from a link before you save."
 msgstr ""
 
 msgid "Prices by market"
@@ -412,6 +490,9 @@ msgid "(set a price or an exchange rate to compare)"
 msgstr ""
 
 msgid "Auto-detect"
+msgstr ""
+
+msgid "Test"
 msgstr ""
 
 msgid "Price history"

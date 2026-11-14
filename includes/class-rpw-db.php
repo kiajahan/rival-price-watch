@@ -12,7 +12,14 @@ defined( 'ABSPATH' ) || exit;
  */
 class RPW_DB {
 
-	const DB_VERSION = '2';
+	const DB_VERSION = '3';
+
+	/**
+	 * Latest rows per product, kept for the length of the request.
+	 *
+	 * @var array<int, array<string, object>>
+	 */
+	private static $latest = array();
 
 	/**
 	 * Table name with prefix.
@@ -25,7 +32,7 @@ class RPW_DB {
 	}
 
 	/**
-	 * Create or update the table.
+	 * Create or update the tables, then move data kept in older formats.
 	 */
 	public static function install() {
 		global $wpdb;
@@ -49,6 +56,12 @@ class RPW_DB {
 			KEY product_link (product_id,link_hash,checked_at)
 		) {$charset};";
 		dbDelta( $sql );
+		RPW_Jobs::install();
+
+		$from = (string) get_option( 'rpw_db_version', '' );
+		if ( '' !== $from && version_compare( $from, '3', '<' ) ) {
+			self::upgrade_to_3();
+		}
 		update_option( 'rpw_db_version', self::DB_VERSION, false );
 	}
 
@@ -62,13 +75,88 @@ class RPW_DB {
 	}
 
 	/**
+	 * Version 3: link hashes keep the case of the path and query, the queue is a
+	 * table, and waiting alerts are stored on the product.
+	 */
+	private static function upgrade_to_3() {
+		global $wpdb;
+		$table = self::table();
+
+		// 1. Re-key history rows whose URL has capital letters in the path or query.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$metas = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s", '_rpw_links' ) );
+		foreach ( (array) $metas as $meta ) {
+			$links = maybe_unserialize( $meta->meta_value );
+			foreach ( is_array( $links ) ? $links : array() as $link ) {
+				if ( empty( $link['url'] ) ) {
+					continue;
+				}
+				$old = self::legacy_hash( $link['url'] );
+				$new = self::hash( $link['url'] );
+				if ( $old !== $new ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET link_hash = %s WHERE product_id = %d AND link_hash = %s AND url = %s", $new, (int) $meta->post_id, $old, esc_url_raw( $link['url'] ) ) );
+				}
+			}
+		}
+
+		// 2. The queue used to be one option holding [product, link number] pairs.
+		$queue = get_option( 'rpw_queue', array() );
+		$jobs  = array();
+		foreach ( is_array( $queue ) ? $queue : array() as $item ) {
+			if ( ! is_array( $item ) || ! isset( $item[0], $item[1] ) ) {
+				continue;
+			}
+			$links = RPW_Settings::links( (int) $item[0] );
+			if ( isset( $links[ (int) $item[1] ] ) ) {
+				$jobs[] = array( (int) $item[0], self::hash( $links[ (int) $item[1] ]['url'] ) );
+			}
+		}
+		RPW_Jobs::enqueue_many( $jobs );
+		delete_option( 'rpw_queue' );
+		delete_transient( 'rpw_lock' );
+
+		// 3. Alerts that were waiting to be emailed were already marked as sent. Undo that so they still go out.
+		$pending = get_option( 'rpw_pending_alerts', array() );
+		foreach ( is_array( $pending ) ? $pending : array() as $key => $alert ) {
+			$pid = isset( $alert['product'] ) ? (int) $alert['product'] : (int) $key;
+			if ( ! $pid ) {
+				continue;
+			}
+			$alerted = get_post_meta( $pid, '_rpw_alerted', true );
+			if ( is_array( $alerted ) ) {
+				delete_post_meta( $pid, '_rpw_alerted' );
+			}
+			RPW_Checker::collect_alert( $pid );
+		}
+		delete_option( 'rpw_pending_alerts' );
+	}
+
+	/**
 	 * Hash used to identify a link.
+	 *
+	 * Only the scheme and host are lower-cased: paths and query strings are
+	 * case-sensitive, so /p/AbC and /p/abc are different pages.
 	 *
 	 * @param string $url URL.
 	 * @return string
 	 */
 	public static function hash( $url ) {
-		return md5( strtolower( trim( $url ) ) );
+		$url = trim( (string) $url );
+		if ( preg_match( '#^([a-z][a-z0-9+.\-]*://[^/?\#]*)(.*)$#is', $url, $m ) ) {
+			$url = strtolower( $m[1] ) . $m[2];
+		}
+		return md5( $url );
+	}
+
+	/**
+	 * The hash used before version 3 (whole URL lower-cased).
+	 *
+	 * @param string $url URL.
+	 * @return string
+	 */
+	public static function legacy_hash( $url ) {
+		return md5( strtolower( trim( (string) $url ) ) );
 	}
 
 	/**
@@ -83,19 +171,31 @@ class RPW_DB {
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			self::table(),
 			array(
-				'product_id' => (int) $product_id,
-				'link_hash'  => self::hash( $url ),
-				'url'        => esc_url_raw( $url ),
-				'price'      => isset( $row['price'] ) ? $row['price'] : null,
+				'product_id'   => (int) $product_id,
+				'link_hash'    => self::hash( $url ),
+				'url'          => esc_url_raw( $url ),
+				'price'        => isset( $row['price'] ) ? $row['price'] : null,
 				'currency'     => isset( $row['currency'] ) ? substr( (string) $row['currency'], 0, 10 ) : null,
 				'raw_price'    => isset( $row['raw_price'] ) ? $row['raw_price'] : null,
 				'raw_currency' => isset( $row['raw_currency'] ) ? substr( (string) $row['raw_currency'], 0, 10 ) : null,
-				'in_stock'   => isset( $row['in_stock'] ) ? (int) $row['in_stock'] : null,
-				'status'     => isset( $row['status'] ) ? $row['status'] : 'ok',
-				'message'    => isset( $row['message'] ) ? substr( (string) $row['message'], 0, 255 ) : '',
-				'checked_at' => current_time( 'mysql', true ),
+				'in_stock'     => isset( $row['in_stock'] ) ? (int) $row['in_stock'] : null,
+				'status'       => isset( $row['status'] ) ? $row['status'] : 'ok',
+				'message'      => isset( $row['message'] ) ? self::cut( (string) $row['message'], 255 ) : '',
+				'checked_at'   => current_time( 'mysql', true ),
 			)
 		);
+		unset( self::$latest[ (int) $product_id ] );
+	}
+
+	/**
+	 * Shorten text to a number of characters without breaking a multi-byte letter.
+	 *
+	 * @param string $text Text.
+	 * @param int    $max  Characters.
+	 * @return string
+	 */
+	private static function cut( $text, $max ) {
+		return function_exists( 'mb_substr' ) ? mb_substr( $text, 0, $max, 'UTF-8' ) : substr( $text, 0, $max );
 	}
 
 	/**
@@ -106,6 +206,10 @@ class RPW_DB {
 	 */
 	public static function latest_for_product( $product_id ) {
 		global $wpdb;
+		$product_id = (int) $product_id;
+		if ( isset( self::$latest[ $product_id ] ) ) {
+			return self::$latest[ $product_id ];
+		}
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT p.* FROM {$table} p INNER JOIN ( SELECT link_hash, MAX(id) AS max_id FROM {$table} WHERE product_id = %d GROUP BY link_hash ) l ON p.id = l.max_id", $product_id ) );
@@ -113,7 +217,36 @@ class RPW_DB {
 		foreach ( (array) $rows as $r ) {
 			$out[ $r->link_hash ] = $r;
 		}
+		self::$latest[ $product_id ] = $out;
 		return $out;
+	}
+
+	/**
+	 * Load the latest result of every link of every product with one query,
+	 * so a list of many products does not run one query per product.
+	 *
+	 * @return array<int, array<string, object>> product id => link hash => row.
+	 */
+	public static function latest_all() {
+		global $wpdb;
+		$table = self::table();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results( "SELECT p.* FROM {$table} p INNER JOIN ( SELECT MAX(id) AS max_id FROM {$table} GROUP BY product_id, link_hash ) l ON p.id = l.max_id" );
+		$out  = array();
+		foreach ( (array) $rows as $r ) {
+			$out[ (int) $r->product_id ][ $r->link_hash ] = $r;
+		}
+		foreach ( $out as $pid => $set ) {
+			self::$latest[ $pid ] = $set;
+		}
+		return $out;
+	}
+
+	/**
+	 * Forget the rows remembered for this request.
+	 */
+	public static function flush() {
+		self::$latest = array();
 	}
 
 	/**
@@ -138,10 +271,11 @@ class RPW_DB {
 	 */
 	public static function prune( $days ) {
 		global $wpdb;
-		$days = max( 7, (int) $days );
+		$days  = max( 7, (int) $days );
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE checked_at < ( UTC_TIMESTAMP() - INTERVAL %d DAY )", $days ) );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE checked_at < %s", gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS ) ) );
+		self::flush();
 	}
 
 	/**
@@ -157,5 +291,7 @@ class RPW_DB {
 			$where['link_hash'] = $hash;
 		}
 		$wpdb->delete( self::table(), $where ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- deleting rows; nothing to cache.
+		unset( self::$latest[ (int) $product_id ] );
+		RPW_Jobs::clear( $product_id, $hash );
 	}
 }

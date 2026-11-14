@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Rival Price Watch 0.1.0\n"
+"Project-Id-Version: Rival Price Watch 0.2.0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -23,8 +23,64 @@ msgstr "باز کردن"
 msgid "Remove"
 msgstr "حذف"
 
+msgid "Reading the page…"
+msgstr "در حال خواندن صفحه…"
+
+msgid "The test could not be run. Please try again."
+msgstr "آزمایش انجام نشد. دوباره تلاش کنید."
+
+msgid "Paste a link first."
+msgstr "اول یک لینک وارد کنید."
+
 msgid "You are not allowed to do this."
 msgstr "شما اجازه انجام این کار را ندارید."
+
+msgid "This is not a link that can be checked."
+msgstr "این لینک قابل بررسی نیست."
+
+#, php-format
+msgid "Price: %s"
+msgstr "قیمت: %s"
+
+#, php-format
+msgid "In your currency: %s"
+msgstr "به واحد پول شما: %s"
+
+msgid "not stated on the page"
+msgstr "در صفحه نوشته نشده"
+
+msgid "in stock"
+msgstr "موجود"
+
+msgid "out of stock"
+msgstr "ناموجود"
+
+#, php-format
+msgid "Stock: %s"
+msgstr "موجودی: %s"
+
+#, php-format
+msgid "Product on the page: %s"
+msgstr "محصول در صفحه: %s"
+
+#, php-format
+msgid "Read from: %s"
+msgstr "خوانده‌شده از: %s"
+
+#, php-format
+msgid "The page does not say which currency this is, so your shop currency (%s) was assumed. Choose the currency for this link if that is wrong."
+msgstr "صفحه نگفته این قیمت به چه واحد پولی است؛ برای همین واحد پول فروشگاه شما (%s) در نظر گرفته شد. اگر درست نیست، واحد پول این لینک را انتخاب کنید."
+
+#, php-format
+msgid "This page lists %d offers or versions. The cheapest one in stock of the first product was used. Fill in \"Variant\" to pick the right one."
+msgstr "این صفحه %d پیشنهاد یا مدل دارد. ارزان‌ترین مدل موجودِ اولین محصول انتخاب شد. برای انتخاب مدل درست، خانه «مدل» را پر کنید."
+
+msgid "This page does not describe its versions in a way that can be read, so the variant text could not be checked."
+msgstr "این صفحه مدل‌هایش را به شکلی که قابل خواندن باشد معرفی نکرده، پس متن «مدل» بررسی نشد."
+
+#, php-format
+msgid "The last alert email could not be sent (%s). The alerts are kept and sending will be tried again."
+msgstr "آخرین ایمیل هشدار فرستاده نشد (%s). هشدارها نگه داشته شده‌اند و دوباره برای ارسال تلاش می‌شود."
 
 msgid "Could not download exchange rates."
 msgstr "دریافت نرخ‌های تبدیل ممکن نشد."
@@ -114,14 +170,14 @@ msgstr "قیمت برابر"
 msgid "not checked yet"
 msgstr "هنوز بررسی نشده"
 
-msgid "out of stock"
-msgstr "ناموجود"
-
 msgid "needs an exchange rate"
 msgstr "نرخ تبدیل لازم است"
 
 msgid "no price found"
 msgstr "قیمتی پیدا نشد"
+
+msgid "variant not found"
+msgstr "مدل پیدا نشد"
 
 msgid "error"
 msgstr "خطا"
@@ -147,6 +203,9 @@ msgstr "نشانی ایمیل هشدار"
 
 msgid "One email per check run, listing every product that changed. You are not emailed again until the price changes."
 msgstr "در هر نوبت بررسی فقط یک ایمیل با فهرست همه محصولات تغییرکرده فرستاده می‌شود. تا قیمت دوباره عوض نشود ایمیل تکراری نمی‌گیرید."
+
+msgid "Only when the competitor is cheaper by at least"
+msgstr "فقط وقتی رقیب دست‌کم این‌قدر ارزان‌تر است:"
 
 msgid "Pause between requests"
 msgstr "مکث بین درخواست‌ها"
@@ -200,6 +259,10 @@ msgstr "صفحه با کد HTTP %d پاسخ داد."
 msgid "The site may be blocking automatic checks."
 msgstr "ممکن است آن سایت بررسی خودکار را مسدود کرده باشد."
 
+#, php-format
+msgid "None of the %2$d offers on the page matches \"%1$s\". Check the variant text for this link."
+msgstr "هیچ‌کدام از %2$d پیشنهاد این صفحه با «%1$s» جور نیست. متن «مدل» این لینک را بررسی کنید."
+
 msgid "No price found on the page. The site does not publish price data that can be read automatically."
 msgstr "قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند."
 
@@ -211,8 +274,14 @@ msgstr "این سایت با %1$s می‌فروشد. برای مقایسه، ن�
 msgid "- %1$s: your price %2$s, %3$s sells it for %4$s (%5$s)"
 msgstr "- %1$s: قیمت شما %2$s، %3$s آن را %4$s می‌فروشد (%5$s)"
 
+msgid "The alert email address in Settings is not valid."
+msgstr "نشانی ایمیل هشدار در تنظیمات معتبر نیست."
+
 msgid "These products are now cheaper at a competitor:"
 msgstr "این محصولات اکنون نزد یک رقیب ارزان‌ترند:"
+
+msgid "WordPress could not send the email."
+msgstr "وردپرس نتوانست ایمیل را بفرستد."
 
 msgid "US dollar"
 msgstr "دلار آمریکا"
@@ -371,6 +440,12 @@ msgstr "لینک محصول رقیب"
 msgid "Name (optional)"
 msgstr "نام (اختیاری)"
 
+msgid "Only needed when the competitor page lists several versions of the product. Type the SKU or barcode of the right one, or words that describe it, for example: 256GB black. Leave empty to use the first product on the page."
+msgstr "فقط وقتی لازم است که صفحه رقیب چند مدل از محصول را نشان می‌دهد. شناسه (SKU) یا بارکد مدل درست را بنویسید، یا چند کلمه که آن را مشخص کند، مثلاً: 256GB black. اگر خالی بماند، اولین محصول صفحه خوانده می‌شود."
+
+msgid "Variant (optional)"
+msgstr "مدل (اختیاری)"
+
 msgid "Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, your shop currency is assumed."
 msgstr "این سایت با چه واحد پولی می‌فروشد. «تشخیص خودکار» آن را از صفحه می‌خواند؛ اگر صفحه چیزی نگوید، واحد پول فروشگاه شما در نظر گرفته می‌شود."
 
@@ -386,6 +461,9 @@ msgstr "قیمت × "
 
 msgid "+ Add competitor"
 msgstr "+ افزودن رقیب"
+
+msgid "Use \"Test\" to see what is read from a link before you save."
+msgstr "پیش از ذخیره، با «آزمایش» ببینید از هر لینک چه چیزی خوانده می‌شود."
 
 msgid "Prices by market"
 msgstr "قیمت‌ها به تفکیک بازار"
@@ -414,6 +492,9 @@ msgstr "(برای مقایسه، قیمت یا نرخ تبدیل وارد کنی
 
 msgid "Auto-detect"
 msgstr "تشخیص خودکار"
+
+msgid "Test"
+msgstr "آزمایش"
 
 msgid "Price history"
 msgstr "تاریخچه قیمت"

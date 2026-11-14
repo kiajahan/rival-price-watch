@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Lint and unit tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.1', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, dom, json
+          coverage: none
+      - name: PHP syntax check
+        run: |
+          status=0
+          for f in $(git ls-files '*.php'); do
+            php -l "$f" > /dev/null || status=1
+          done
+          exit $status
+      - name: Price extractor
+        run: php tests/test-extractor.php
+      - name: Currency
+        run: php tests/test-currency.php
+      - name: Link identity
+        run: php tests/test-url-hash.php
+
+  integration:
+    name: Integration tests (WordPress + WooCommerce)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, dom, json, mysqli
+          coverage: none
+          tools: wp-cli
+      - name: Install WordPress and WooCommerce
+        run: |
+          mkdir -p /tmp/wordpress
+          cd /tmp/wordpress
+          wp core download
+          wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
+          wp core install --url=http://localhost --title=Test --admin_user=admin --admin_password=password --admin_email=admin@example.org --skip-email
+          wp plugin install woocommerce --activate
+          ln -s "$GITHUB_WORKSPACE" wp-content/plugins/rival-price-watch
+          wp plugin activate rival-price-watch
+      - name: Queue, retries, alert emails, upgrade
+        run: php tests/integration/run.php /tmp/wordpress/wp-load.php

@@ -24,6 +24,7 @@ class RPW_Settings {
 			'frequency'   => 'daily',
 			'alerts'      => 1,
 			'alert_email' => get_option( 'admin_email' ),
+			'alert_percent' => 0,
 			'delay'       => 3,
 			'keep_days'   => 180,
 		);
@@ -74,6 +75,10 @@ class RPW_Settings {
 		$email              = isset( $input['alert_email'] ) ? sanitize_email( $input['alert_email'] ) : '';
 		$out['alert_email'] = is_email( $email ) ? $email : get_option( 'admin_email' );
 
+		// Only alert when the rival is at least this many percent cheaper (0 = any difference).
+		$percent              = isset( $input['alert_percent'] ) ? (float) str_replace( ',', '.', (string) $input['alert_percent'] ) : 0;
+		$out['alert_percent'] = min( 90, max( 0, round( $percent, 2 ) ) );
+
 		$out['delay']     = isset( $input['delay'] ) ? min( 30, max( 1, (int) $input['delay'] ) ) : 3;
 		$out['keep_days'] = isset( $input['keep_days'] ) ? min( 3650, max( 7, (int) $input['keep_days'] ) ) : 180;
 
@@ -88,8 +93,17 @@ class RPW_Settings {
 	 * @return array<string, float>
 	 */
 	public static function market_prices( $product_id ) {
-		$prices = get_post_meta( $product_id, '_rpw_market_prices', true );
-		$out    = array();
+		return self::clean_market_prices( get_post_meta( $product_id, '_rpw_market_prices', true ) );
+	}
+
+	/**
+	 * Tidy a stored list of market prices.
+	 *
+	 * @param mixed $prices Stored value.
+	 * @return array<string, float>
+	 */
+	public static function clean_market_prices( $prices ) {
+		$out = array();
 		foreach ( is_array( $prices ) ? $prices : array() as $cur => $price ) {
 			if ( (float) $price > 0 ) {
 				$out[ strtoupper( (string) $cur ) ] = (float) $price;
@@ -103,10 +117,19 @@ class RPW_Settings {
 	 * Competitor links of a product.
 	 *
 	 * @param int $product_id Product ID.
-	 * @return array<int, array{url: string, label: string, factor: float, currency: string}>
+	 * @return array<int, array{url: string, label: string, factor: float, currency: string, match: string}>
 	 */
 	public static function links( $product_id ) {
-		$links = get_post_meta( $product_id, '_rpw_links', true );
+		return self::clean_links( get_post_meta( $product_id, '_rpw_links', true ) );
+	}
+
+	/**
+	 * Tidy a stored list of links.
+	 *
+	 * @param mixed $links Stored value.
+	 * @return array<int, array{url: string, label: string, factor: float, currency: string, match: string}>
+	 */
+	public static function clean_links( $links ) {
 		if ( ! is_array( $links ) ) {
 			return array();
 		}
@@ -120,6 +143,7 @@ class RPW_Settings {
 				'label'    => isset( $l['label'] ) ? (string) $l['label'] : '',
 				'factor'   => isset( $l['factor'] ) && (float) $l['factor'] > 0 ? (float) $l['factor'] : 1.0,
 				'currency' => isset( $l['currency'] ) ? (string) $l['currency'] : '',
+				'match'    => isset( $l['match'] ) ? (string) $l['match'] : '',
 			);
 		}
 		return $out;

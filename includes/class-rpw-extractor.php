@@ -16,17 +16,23 @@ defined( 'ABSPATH' ) || defined( 'RPW_TESTING' ) || exit;
  * 1. schema.org Product data in JSON-LD (what Google uses for rich results),
  * 2. Open Graph / product meta tags (product:price:amount, og:price:amount),
  * 3. schema.org microdata (itemprop="price").
+ *
+ * When a page lists several offers or variants, pass a variant hint to extract()
+ * so the price of the right one is read.
  */
 class RPW_Extractor {
 
 	/**
 	 * Extract a price from HTML.
 	 *
-	 * @param string $html Page HTML.
-	 * @return array{price: float|null, currency: string|null, in_stock: bool|null, source: string}
+	 * @param string $html  Page HTML.
+	 * @param string $match Optional variant hint: a SKU / GTIN / MPN, or words that must all
+	 *                      appear in the offer (for example "256GB black"). Only JSON-LD can be
+	 *                      matched; for meta tags and microdata "matched" stays null (not verified).
+	 * @return array{price: float|null, currency: string|null, in_stock: bool|null, source: string, name: string, sku: string, candidates: int, matched: bool|null}
 	 */
-	public static function extract( $html ) {
-		$result = self::extract_structured( $html );
+	public static function extract( $html, $match = '' ) {
+		$result = self::extract_structured( $html, (string) $match );
 		if ( null !== $result['price'] && in_array( $result['currency'], array( 'IRR', 'IRT', null ), true ) ) {
 			$shown = self::shown_iranian_unit( $html, $result['price'] );
 			if ( $shown && $shown !== $result['currency'] ) {
@@ -84,41 +90,40 @@ class RPW_Extractor {
 	}
 
 	/**
+	 * Empty result.
+	 *
+	 * @return array
+	 */
+	private static function blank() {
+		return array(
+			'price'      => null,
+			'currency'   => null,
+			'in_stock'   => null,
+			'source'     => 'none',
+			'name'       => '',
+			'sku'        => '',
+			'candidates' => 0,
+			'matched'    => null,
+		);
+	}
+
+	/**
 	 * Read price data from JSON-LD, meta tags or microdata.
 	 *
-	 * @param string $html Page HTML.
-	 * @return array{price: float|null, currency: string|null, in_stock: bool|null, source: string}
+	 * @param string $html  Page HTML.
+	 * @param string $match Optional variant hint (SKU, GTIN, or words such as "256GB black").
+	 * @return array See extract().
 	 */
-	private static function extract_structured( $html ) {
-		$result = array(
-			'price'    => null,
-			'currency' => null,
-			'in_stock' => null,
-			'source'   => 'none',
-		);
+	private static function extract_structured( $html, $match = '' ) {
+		$result = self::blank();
 		if ( ! is_string( $html ) || '' === trim( $html ) ) {
 			return $result;
 		}
 
-		// 1. JSON-LD, read with a fast text scan so big pages are not parsed into a DOM.
-		if ( preg_match_all( '#<script\b[^>]*type\s*=\s*["\']?application/ld\+json["\']?[^>]*>(.*?)</script>#is', $html, $blocks ) ) {
-			foreach ( $blocks[1] as $json ) {
-				$json = trim( $json );
-				// Some sites wrap JSON-LD in HTML comments or CDATA.
-				$json = preg_replace( '#^(<!--|/\*<!\[CDATA\[\*/|<!\[CDATA\[)|(-->|/\*\]\]>\*/|\]\]>)$#', '', $json );
-				$data = json_decode( trim( (string) $json ), true );
-				if ( null === $data ) {
-					$data = json_decode( html_entity_decode( trim( (string) $json ), ENT_QUOTES, 'UTF-8' ), true );
-				}
-				if ( null === $data ) {
-					continue;
-				}
-				$found = self::from_jsonld( $data );
-				if ( null !== $found['price'] ) {
-					$found['source'] = 'json-ld';
-					return $found;
-				}
-			}
+		// 1. JSON-LD.
+		$candidates = self::jsonld_candidates( $html );
+		if ( $candidates ) {
+			return self::choose( $candidates, $match );
 		}
 
 		$dom = self::load_dom( $html );
@@ -127,152 +132,387 @@ class RPW_Extractor {
 		}
 		$xpath = new DOMXPath( $dom );
 
-		// 2. Meta tags.
-		$meta_names = array( 'product:price:amount', 'og:price:amount' );
-		foreach ( $meta_names as $name ) {
-			$q = sprintf( '//meta[@property="%1$s" or @name="%1$s"]/@content', $name );
+		// 2. Meta tags. The currency is read from the same family (product: or og:) first.
+		foreach ( array( 'product', 'og' ) as $family ) {
+			$q = sprintf( '//meta[@property="%1$s:price:amount" or @name="%1$s:price:amount"]/@content', $family );
 			foreach ( $xpath->query( $q ) as $attr ) {
-				$price = self::normalize_number( $attr->value );
-				if ( null !== $price && $price > 0 ) {
-					$result['price']  = $price;
-					$result['source'] = 'meta';
-					$cur              = $xpath->query( '//meta[@property="product:price:currency" or @property="og:price:currency"]/@content' );
-					if ( $cur->length ) {
+				$price = self::normalize_number( $attr->value, true );
+				if ( null === $price || $price <= 0 ) {
+					continue;
+				}
+				$result['price']      = $price;
+				$result['source']     = 'meta';
+				$result['candidates'] = 1;
+				foreach ( array( $family, 'product' === $family ? 'og' : 'product' ) as $f ) {
+					$cur = $xpath->query( sprintf( '//meta[@property="%1$s:price:currency" or @name="%1$s:price:currency"]/@content', $f ) );
+					if ( $cur->length && '' !== trim( $cur->item( 0 )->value ) ) {
 						$result['currency'] = strtoupper( trim( $cur->item( 0 )->value ) );
+						break;
 					}
-					return $result;
 				}
-			}
-		}
-
-		// 3. Microdata.
-		foreach ( $xpath->query( '//*[@itemprop="price"]' ) as $el ) {
-			$raw   = $el->hasAttribute( 'content' ) ? $el->getAttribute( 'content' ) : $el->textContent;
-			$price = self::normalize_number( $raw );
-			if ( null !== $price && $price > 0 ) {
-				$result['price']  = $price;
-				$result['source'] = 'microdata';
-				$cur              = $xpath->query( '//*[@itemprop="priceCurrency"]' );
-				if ( $cur->length ) {
-					$c                  = $cur->item( 0 );
-					$result['currency'] = strtoupper( trim( $c->hasAttribute( 'content' ) ? $c->getAttribute( 'content' ) : $c->textContent ) );
-				}
-				$avail = $xpath->query( '//*[@itemprop="availability"]' );
+				$avail = $xpath->query( '//meta[@property="product:availability" or @name="product:availability" or @property="og:availability" or @name="og:availability"]/@content' );
 				if ( $avail->length ) {
-					$a                  = $avail->item( 0 );
-					$result['in_stock'] = self::availability_in_stock( $a->hasAttribute( 'href' ) ? $a->getAttribute( 'href' ) : ( $a->hasAttribute( 'content' ) ? $a->getAttribute( 'content' ) : $a->textContent ) );
+					$result['in_stock'] = self::availability_in_stock( str_replace( array( ' ', '_', '-' ), '', $avail->item( 0 )->value ) );
+				}
+				$title = $xpath->query( '//meta[@property="og:title" or @name="og:title"]/@content' );
+				if ( $title->length ) {
+					$result['name'] = trim( $title->item( 0 )->value );
 				}
 				return $result;
 			}
+		}
+
+		// 3. Microdata. Currency and availability are read from the same Offer when the page marks one.
+		$prices = $xpath->query( '//*[@itemprop="price"]' );
+		foreach ( $prices as $el ) {
+			$price = $el->hasAttribute( 'content' ) ? self::normalize_number( $el->getAttribute( 'content' ), true ) : self::normalize_number( $el->textContent );
+			if ( null === $price || $price <= 0 ) {
+				continue;
+			}
+			$result['price']      = $price;
+			$result['source']     = 'microdata';
+			$result['candidates'] = $prices->length;
+			$scope                = $xpath->query( 'ancestor::*[@itemscope][1]', $el );
+			$scope                = $scope->length ? $scope->item( 0 ) : null;
+
+			$cur = $scope ? $xpath->query( './/*[@itemprop="priceCurrency"]', $scope ) : null;
+			if ( ! $cur || ! $cur->length ) {
+				$cur = $xpath->query( '//*[@itemprop="priceCurrency"]' );
+			}
+			if ( $cur->length ) {
+				$c                  = $cur->item( 0 );
+				$result['currency'] = strtoupper( trim( $c->hasAttribute( 'content' ) ? $c->getAttribute( 'content' ) : $c->textContent ) );
+			}
+			$avail = $scope ? $xpath->query( './/*[@itemprop="availability"]', $scope ) : null;
+			if ( ! $avail || ! $avail->length ) {
+				$avail = $xpath->query( '//*[@itemprop="availability"]' );
+			}
+			if ( $avail->length ) {
+				$a                  = $avail->item( 0 );
+				$result['in_stock'] = self::availability_in_stock( $a->hasAttribute( 'href' ) ? $a->getAttribute( 'href' ) : ( $a->hasAttribute( 'content' ) ? $a->getAttribute( 'content' ) : $a->textContent ) );
+			}
+			$name = $xpath->query( '//*[@itemprop="name"]' );
+			if ( $name->length ) {
+				$n              = $name->item( 0 );
+				$result['name'] = trim( $n->hasAttribute( 'content' ) ? $n->getAttribute( 'content' ) : $n->textContent );
+			}
+			return $result;
 		}
 
 		return $result;
 	}
 
 	/**
-	 * Find a Product price in decoded JSON-LD (handles @graph, arrays and nested offers).
+	 * Every priced offer published in the page's JSON-LD.
 	 *
-	 * @param mixed $data Decoded JSON.
-	 * @return array{price: float|null, currency: string|null, in_stock: bool|null, source: string}
+	 * Read with a fast text scan so big pages are not parsed into a DOM.
+	 *
+	 * @param string $html Page HTML.
+	 * @return array<int, array> Offers with price, currency, in_stock, name, sku, gtin, mpn, color, size, url, group.
 	 */
-	private static function from_jsonld( $data ) {
-		$empty = array(
-			'price'    => null,
-			'currency' => null,
-			'in_stock' => null,
-			'source'   => 'json-ld',
-		);
-		if ( ! is_array( $data ) ) {
-			return $empty;
+	public static function jsonld_candidates( $html ) {
+		$out   = array();
+		$group = 0;
+		if ( ! preg_match_all( '#<script\b[^>]*type\s*=\s*["\']?application/ld\+json["\']?[^>]*>(.*?)</script>#is', (string) $html, $blocks ) ) {
+			return $out;
 		}
-
-		// A list of items, or a @graph.
-		if ( isset( $data['@graph'] ) && is_array( $data['@graph'] ) ) {
-			return self::from_jsonld( $data['@graph'] );
-		}
-		if ( array_keys( $data ) === range( 0, count( $data ) - 1 ) ) {
-			foreach ( $data as $item ) {
-				$found = self::from_jsonld( $item );
-				if ( null !== $found['price'] ) {
-					return $found;
-				}
+		foreach ( $blocks[1] as $json ) {
+			$json = trim( $json );
+			// Some sites wrap JSON-LD in HTML comments or CDATA.
+			$json = preg_replace( '#^(<!--|/\*<!\[CDATA\[\*/|<!\[CDATA\[)|(-->|/\*\]\]>\*/|\]\]>)$#', '', $json );
+			$data = json_decode( trim( (string) $json ), true );
+			if ( null === $data ) {
+				$data = json_decode( html_entity_decode( trim( (string) $json ), ENT_QUOTES, 'UTF-8' ), true );
 			}
-			return $empty;
+			if ( null !== $data ) {
+				self::walk( $data, $out, $group, array(), 0 );
+			}
 		}
-
-		$types = isset( $data['@type'] ) ? (array) $data['@type'] : array();
-		$types = array_map( 'strtolower', array_map( 'strval', $types ) );
-		if ( array_intersect( $types, array( 'product', 'productgroup', 'individualproduct', 'productmodel' ) ) && isset( $data['offers'] ) ) {
-			return self::from_offers( $data['offers'] );
-		}
-
-		// ProductGroup with variants.
-		if ( isset( $data['hasVariant'] ) && is_array( $data['hasVariant'] ) ) {
-			return self::from_jsonld( $data['hasVariant'] );
-		}
-
-		return $empty;
+		return $out;
 	}
 
 	/**
-	 * Read price from an Offer, AggregateOffer or list of offers. Picks the lowest in-stock price.
+	 * Is this a JSON list (keys 0..n)?
 	 *
-	 * @param mixed $offers Offers data.
-	 * @return array{price: float|null, currency: string|null, in_stock: bool|null, source: string}
+	 * @param array $a Array.
+	 * @return bool
 	 */
-	private static function from_offers( $offers ) {
-		$best = array(
-			'price'    => null,
-			'currency' => null,
-			'in_stock' => null,
-			'source'   => 'json-ld',
-		);
-		if ( ! is_array( $offers ) ) {
-			return $best;
+	private static function is_list( array $a ) {
+		return array() === $a || array_keys( $a ) === range( 0, count( $a ) - 1 );
+	}
+
+	/**
+	 * A scalar JSON value as trimmed text ('' for arrays and missing values).
+	 *
+	 * @param mixed $v Value.
+	 * @return string
+	 */
+	private static function text( $v ) {
+		return is_scalar( $v ) ? trim( (string) $v ) : '';
+	}
+
+	/**
+	 * Identifying details of a Product or Offer node.
+	 *
+	 * @param array $node JSON-LD node.
+	 * @return array<string, string>
+	 */
+	private static function identity( array $node ) {
+		$gtin = '';
+		foreach ( array( 'gtin', 'gtin14', 'gtin13', 'gtin12', 'gtin8', 'isbn' ) as $k ) {
+			if ( isset( $node[ $k ] ) && '' !== self::text( $node[ $k ] ) ) {
+				$gtin = self::text( $node[ $k ] );
+				break;
+			}
 		}
-		$list = ( array_keys( $offers ) === range( 0, count( $offers ) - 1 ) ) ? $offers : array( $offers );
+		return array(
+			'name'  => self::text( $node['name'] ?? '' ),
+			'sku'   => self::text( $node['sku'] ?? '' ),
+			'gtin'  => $gtin,
+			'mpn'   => self::text( $node['mpn'] ?? '' ),
+			'color' => self::text( $node['color'] ?? '' ),
+			'size'  => self::text( $node['size'] ?? '' ),
+			'url'   => self::text( $node['url'] ?? '' ),
+		);
+	}
+
+	/**
+	 * Walk decoded JSON-LD (handles @graph, lists, variants) and collect priced offers.
+	 *
+	 * @param mixed $data    Decoded JSON.
+	 * @param array $out     Collected offers.
+	 * @param int   $group   Counter: offers of one product share a group number.
+	 * @param array $inherit Details inherited from a parent ProductGroup.
+	 * @param int   $depth   Recursion depth.
+	 */
+	private static function walk( $data, array &$out, &$group, array $inherit, $depth ) {
+		if ( ! is_array( $data ) || $depth > 8 ) {
+			return;
+		}
+		if ( self::is_list( $data ) ) {
+			foreach ( $data as $item ) {
+				self::walk( $item, $out, $group, $inherit, $depth + 1 );
+			}
+			return;
+		}
+		if ( isset( $data['@graph'] ) && is_array( $data['@graph'] ) ) {
+			self::walk( $data['@graph'], $out, $group, $inherit, $depth + 1 );
+		}
+
+		$types = isset( $data['@type'] ) ? (array) $data['@type'] : array();
+		$types = array_map( 'strtolower', array_map( 'strval', array_filter( $types, 'is_scalar' ) ) );
+		if ( array_intersect( $types, array( 'product', 'productgroup', 'individualproduct', 'productmodel' ) ) ) {
+			$info = self::identity( $data );
+			foreach ( $inherit as $k => $v ) {
+				if ( '' === $info[ $k ] ) {
+					$info[ $k ] = $v;
+				}
+			}
+			if ( isset( $data['offers'] ) ) {
+				$g = $group++;
+				foreach ( self::flatten_offers( $data['offers'], array() ) as $offer ) {
+					$own_name = $offer['name'];
+					foreach ( $info as $k => $v ) {
+						if ( '' === $offer[ $k ] ) {
+							$offer[ $k ] = $v;
+						}
+					}
+					// Keep the product name next to an offer's own name ("256 GB") so both can be matched.
+					if ( '' !== $own_name && '' !== $info['name'] && false === strpos( $own_name, $info['name'] ) ) {
+						$offer['name'] = $info['name'] . ' ' . $own_name;
+					}
+					$offer['group'] = $g;
+					$out[]          = $offer;
+				}
+			}
+			if ( isset( $data['hasVariant'] ) && is_array( $data['hasVariant'] ) ) {
+				$variants = self::is_list( $data['hasVariant'] ) ? $data['hasVariant'] : array( $data['hasVariant'] );
+				foreach ( $variants as $variant ) {
+					if ( is_array( $variant ) && ! isset( $variant['@type'] ) ) {
+						$variant['@type'] = 'Product';
+					}
+					self::walk( $variant, $out, $group, array( 'name' => $info['name'] ), $depth + 1 );
+				}
+			}
+			return;
+		}
+
+		foreach ( array( 'mainEntity', 'hasVariant' ) as $key ) {
+			if ( isset( $data[ $key ] ) && is_array( $data[ $key ] ) ) {
+				self::walk( $data[ $key ], $out, $group, $inherit, $depth + 1 );
+			}
+		}
+	}
+
+	/**
+	 * Turn an Offer, AggregateOffer or list of offers (also nested) into a flat list.
+	 * A nested offer keeps the currency and availability of its parent when it has none.
+	 *
+	 * @param mixed $offers  Offers data.
+	 * @param array $inherit currency / in_stock from the parent offer.
+	 * @param int   $depth   Recursion depth.
+	 * @return array<int, array>
+	 */
+	private static function flatten_offers( $offers, array $inherit, $depth = 0 ) {
+		$out = array();
+		if ( ! is_array( $offers ) || $depth > 4 ) {
+			return $out;
+		}
+		$list = self::is_list( $offers ) ? $offers : array( $offers );
 
 		foreach ( $list as $offer ) {
 			if ( ! is_array( $offer ) ) {
 				continue;
 			}
+			$currency = self::text( $offer['priceCurrency'] ?? '' );
+			$in_stock = isset( $offer['availability'] ) ? self::availability_in_stock( self::text( $offer['availability'] ) ) : null;
+
 			$raw = null;
 			foreach ( array( 'price', 'lowPrice', 'highPrice' ) as $key ) {
-				if ( isset( $offer[ $key ] ) && '' !== $offer[ $key ] ) {
+				if ( isset( $offer[ $key ] ) && is_scalar( $offer[ $key ] ) && '' !== $offer[ $key ] ) {
 					$raw = $offer[ $key ];
 					break;
 				}
 			}
-			if ( null === $raw && isset( $offer['priceSpecification'] ) ) {
-				$spec = $offer['priceSpecification'];
-				if ( isset( $spec[0] ) ) {
-					$spec = $spec[0];
-				}
-				$raw = isset( $spec['price'] ) ? $spec['price'] : null;
-				if ( empty( $offer['priceCurrency'] ) && ! empty( $spec['priceCurrency'] ) ) {
-					$offer['priceCurrency'] = $spec['priceCurrency'];
+			if ( null === $raw && isset( $offer['priceSpecification'] ) && is_array( $offer['priceSpecification'] ) ) {
+				$specs = self::is_list( $offer['priceSpecification'] ) ? $offer['priceSpecification'] : array( $offer['priceSpecification'] );
+				foreach ( $specs as $spec ) {
+					if ( is_array( $spec ) && isset( $spec['price'] ) && is_scalar( $spec['price'] ) && '' !== $spec['price'] ) {
+						$raw = $spec['price'];
+						if ( '' === $currency ) {
+							$currency = self::text( $spec['priceCurrency'] ?? '' );
+						}
+						break;
+					}
 				}
 			}
+			if ( '' === $currency && ! empty( $inherit['currency'] ) ) {
+				$currency = $inherit['currency'];
+			}
+			if ( null === $in_stock && isset( $inherit['in_stock'] ) ) {
+				$in_stock = $inherit['in_stock'];
+			}
+
 			if ( null === $raw && isset( $offer['offers'] ) ) {
-				$nested = self::from_offers( $offer['offers'] );
-				$raw    = $nested['price'];
+				$nested = self::flatten_offers(
+					$offer['offers'],
+					array(
+						'currency' => $currency,
+						'in_stock' => $in_stock,
+					),
+					$depth + 1
+				);
+				$out    = array_merge( $out, $nested );
+				continue;
 			}
+
 			$price = is_int( $raw ) || is_float( $raw ) ? (float) $raw : self::normalize_number( (string) $raw, true );
 			if ( null === $price || $price <= 0 ) {
 				continue;
 			}
-			$in_stock = isset( $offer['availability'] ) ? self::availability_in_stock( $offer['availability'] ) : null;
+			$out[] = array_merge(
+				self::identity( $offer ),
+				array(
+					'price'    => $price,
+					'currency' => '' !== $currency ? strtoupper( $currency ) : null,
+					'in_stock' => $in_stock,
+				)
+			);
+		}
+		return $out;
+	}
 
+	/**
+	 * Pick one offer: the lowest in-stock price of the first product on the page,
+	 * or, with a variant hint, of the offers that match the hint.
+	 *
+	 * @param array  $candidates Offers from jsonld_candidates().
+	 * @param string $match      Variant hint.
+	 * @return array See extract().
+	 */
+	private static function choose( array $candidates, $match ) {
+		$best               = self::blank();
+		$best['source']     = 'json-ld';
+		$best['candidates'] = count( $candidates );
+
+		$pool = array();
+		if ( '' !== trim( (string) $match ) ) {
+			foreach ( $candidates as $c ) {
+				if ( self::matches( $c, $match ) ) {
+					$pool[] = $c;
+				}
+			}
+			$best['matched'] = ! empty( $pool );
+		} else {
+			foreach ( $candidates as $c ) {
+				if ( $c['group'] === $candidates[0]['group'] ) {
+					$pool[] = $c;
+				}
+			}
+		}
+
+		foreach ( $pool as $c ) {
 			$better = null === $best['price']
-				|| ( false === $best['in_stock'] && false !== $in_stock )
-				|| ( ( false !== $in_stock || false === $best['in_stock'] ) && $price < $best['price'] );
+				|| ( false === $best['in_stock'] && false !== $c['in_stock'] )
+				|| ( ( false !== $c['in_stock'] || false === $best['in_stock'] ) && $c['price'] < $best['price'] );
 			if ( $better ) {
-				$best['price']    = $price;
-				$best['currency'] = isset( $offer['priceCurrency'] ) ? strtoupper( (string) $offer['priceCurrency'] ) : null;
-				$best['in_stock'] = $in_stock;
+				$best['price']    = $c['price'];
+				$best['currency'] = $c['currency'];
+				$best['in_stock'] = $c['in_stock'];
+				$best['name']     = $c['name'];
+				$best['sku']      = '' !== $c['sku'] ? $c['sku'] : ( '' !== $c['gtin'] ? $c['gtin'] : $c['mpn'] );
 			}
 		}
 		return $best;
+	}
+
+	/**
+	 * Does an offer fit the variant hint?
+	 *
+	 * True when the hint equals the SKU, GTIN or MPN, or when every word of the
+	 * hint appears in the offer's name, colour, size, identifiers or URL.
+	 *
+	 * @param array  $c     Offer.
+	 * @param string $match Hint.
+	 * @return bool
+	 */
+	public static function matches( array $c, $match ) {
+		$needle = self::fold( $match );
+		if ( '' === $needle ) {
+			return true;
+		}
+		foreach ( array( 'sku', 'gtin', 'mpn' ) as $k ) {
+			if ( '' !== $c[ $k ] && self::fold( $c[ $k ] ) === $needle ) {
+				return true;
+			}
+		}
+		$hay = self::fold( implode( ' ', array( $c['name'], $c['color'], $c['size'], $c['sku'], $c['gtin'], $c['mpn'], rawurldecode( $c['url'] ) ) ) );
+		foreach ( preg_split( '/\s+/u', $needle ) as $word ) {
+			if ( '' !== $word && false === strpos( $hay, $word ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Lower-case text with Persian/Arabic digits turned into Latin ones, for comparing.
+	 *
+	 * @param string $s Text.
+	 * @return string
+	 */
+	private static function fold( $s ) {
+		$s = strtr(
+			trim( (string) $s ),
+			array(
+				'۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+				'۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+				'٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+				'٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+				'ي' => 'ی', 'ك' => 'ک',
+			)
+		);
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( $s, 'UTF-8' ) : strtolower( $s );
 	}
 
 	/**
@@ -342,8 +582,10 @@ class RPW_Extractor {
 			}
 		} elseif ( $has_comma ) {
 			$n = preg_match( '/^\d{1,3}(,\d{3})+$/', $n ) ? str_replace( ',', '', $n ) : str_replace( ',', '.', $n );
-		} elseif ( $has_dot && ! $machine_form ) {
-			if ( preg_match( '/^\d{1,3}(\.\d{3})+$/', $n ) ) {
+		} elseif ( $has_dot ) {
+			// "1.299.000" is always thousands. A single dot ("1.234") is thousands in text
+			// written for people, but a decimal point in machine-readable data (1.234 KWD).
+			if ( preg_match( '/^\d{1,3}(\.\d{3})+$/', $n ) && ( ! $machine_form || substr_count( $n, '.' ) > 1 ) ) {
 				$n = str_replace( '.', '', $n );
 			}
 		}
