@@ -267,6 +267,23 @@ class RPW_DB {
 	}
 
 	/**
+	 * The newest result of one link whose page really answered (any status except
+	 * "error"), so a failed fetch does not hide what the link last showed.
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $hash       Link hash.
+	 * @param string $since      Oldest check time to accept (UTC, Y-m-d H:i:s).
+	 * @return object|null Full row, or null.
+	 */
+	public static function last_answered( $product_id, $hash, $since ) {
+		global $wpdb;
+		$table = self::table();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM %i WHERE product_id = %d AND link_hash = %s AND status <> 'error' AND checked_at >= %s ORDER BY id DESC LIMIT 1", $table, (int) $product_id, (string) $hash, (string) $since ) );
+		return $row ? $row : null;
+	}
+
+	/**
 	 * Delete history older than N days.
 	 *
 	 * @param int $days Days to keep.

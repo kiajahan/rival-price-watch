@@ -433,6 +433,57 @@ try {
 	RPW_Jobs::clear( $p6 );
 	wp_clear_scheduled_hook( RPW_Checker::HOOK_CONTINUE );
 
+	// ------------------- 6c. alert state survives failures; stale alerts.
+	echo "\n# Alerts: temporary failures and outdated waiting alerts\n";
+	$p7                        = rpw_product( 100, array( $base . 'al' ) );
+	$created[]                 = $p7;
+	$rpw_pages[ $base . 'al' ] = rpw_page( 80, $shop );
+	$mails_before              = count( $rpw_mails );
+	RPW_Checker::check_product( $p7 );
+	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'cheaper rival: one email' );
+	$rpw_pages[ $base . 'al' ] = 503;
+	RPW_Checker::check_product( $p7 );
+	rpw_eq( true, is_array( get_post_meta( $p7, '_rpw_alerted', true ) ) && get_post_meta( $p7, '_rpw_alerted', true ), 'a failed fetch keeps the "already emailed" record' );
+	$rpw_pages[ $base . 'al' ] = rpw_page( 80, $shop );
+	RPW_Checker::check_product( $p7 );
+	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'the same price after a failure is not emailed again' );
+
+	// A waiting (unsent) alert survives a failed fetch.
+	$rpw_mail_ok               = false;
+	$rpw_pages[ $base . 'al' ] = rpw_page( 70, $shop );
+	RPW_Checker::check_product( $p7 );
+	rpw_eq( true, is_array( get_post_meta( $p7, '_rpw_pending', true ) ), 'new lower price waits to be emailed (mail is down)' );
+	$rpw_pages[ $base . 'al' ] = 503;
+	RPW_Checker::check_product( $p7 );
+	rpw_eq( true, is_array( get_post_meta( $p7, '_rpw_pending', true ) ), 'a failed fetch keeps the waiting alert' );
+
+	// The shop owner lowers the price before the email retry: the alert is no longer true.
+	$own = wc_get_product( $p7 );
+	$own->set_regular_price( '50' );
+	$own->save();
+	$rpw_mail_ok  = true;
+	$mails_before = count( $rpw_mails );
+	RPW_Checker::send_alerts();
+	rpw_eq( $mails_before, count( $rpw_mails ), 'an alert that is no longer true is not emailed' );
+	rpw_eq( '', get_post_meta( $p7, '_rpw_pending', true ), 'and it is no longer waiting' );
+	rpw_eq( false, (bool) wp_next_scheduled( RPW_Checker::HOOK_ALERTS ), 'no email retry is left scheduled' );
+
+	// Price goes back up while an alert waits: the email uses today's own price.
+	$own->set_regular_price( '90' );
+	$own->save();
+	$rpw_mail_ok               = false;
+	$rpw_pages[ $base . 'al' ] = rpw_page( 70, $shop );
+	RPW_Checker::check_product( $p7 );
+	$own->set_regular_price( '95' );
+	$own->save();
+	$rpw_mail_ok  = true;
+	$mails_before = count( $rpw_mails );
+	RPW_Checker::send_alerts();
+	$msg = $rpw_mails[ $mails_before ]['message'] ?? '';
+	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'a still-true alert is emailed' );
+	$own_part = preg_match( '/' . preg_quote( $own->get_name(), '/' ) . ': ([^,]+),/u', $msg, $mm ) ? $mm[1] : '';
+	rpw_eq( true, false !== strpos( $own_part, '95' ) && false === strpos( $own_part, '90' ), 'with the current own price, not the one from when it was queued' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

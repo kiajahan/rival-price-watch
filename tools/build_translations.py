@@ -70,6 +70,8 @@ FA = {
     'days': 'روز',
     'The page answered with HTTP %d.': 'صفحه با کد HTTP %d پاسخ داد.',
     'The site may be blocking automatic checks.': 'ممکن است آن سایت بررسی خودکار را مسدود کرده باشد.',
+    'The page does not state a currency; %s was assumed. Choose the currency for this link to be sure.':
+        'صفحه واحد پول را مشخص نکرده است؛ %s در نظر گرفته شد. برای اطمینان، واحد پول این لینک را انتخاب کنید.',
     'No price found on the page. The site does not publish price data that can be read automatically.':
         'قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند.',
     '- %1$s: your price %2$s, %3$s sells it for %4$s (%5$s)': '- %1$s: قیمت شما %2$s، %3$s آن را %4$s می‌فروشد (%5$s)',
@@ -268,7 +270,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.2.0\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.2\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

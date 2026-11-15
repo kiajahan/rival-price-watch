@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,11 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.2 =
+* Fixed: a failed check (timeout, HTTP error) no longer resets the alert history. The link's last real answer is used for up to 7 days, so the same price is not emailed twice and a waiting alert is not dropped.
+* Fixed: a waiting alert is checked again just before the email is sent, against today's own price, links, rival prices and threshold. Alerts that are no longer true are dropped; the email shows current prices.
+* Fixed: when some offers on a page state a currency, offers without one are no longer compared with them. When the page states no currency at all, the result says which currency was assumed.
 
 = 0.2.1 =
 * Fixed: a variant hint that is an exact SKU, GTIN or MPN now always picks that offer, even when another offer whose code only contains it is cheaper.

@@ -492,7 +492,9 @@ class RPW_Extractor {
 	 * across currencies (90 GBP is not cheaper than 100 USD).
 	 *
 	 * The preferred currency is used when some offers are in it; otherwise the currency
-	 * of the first offer that has one. Offers without a currency stay in the pool.
+	 * of the first offer that has one. When some offers state a currency, offers without
+	 * one are left out: nothing shows they are in the same currency. Only when no offer
+	 * states a currency are they all kept (the caller then decides which currency applies).
 	 *
 	 * @param array  $pool      Offers.
 	 * @param string $preferred Preferred currency code, or ''.
@@ -505,7 +507,7 @@ class RPW_Extractor {
 				$codes[ $c['currency'] ] = true;
 			}
 		}
-		if ( count( $codes ) < 2 ) {
+		if ( ! $codes ) {
 			return $pool;
 		}
 		$preferred = strtoupper( trim( (string) $preferred ) );
@@ -514,7 +516,7 @@ class RPW_Extractor {
 			array_filter(
 				$pool,
 				static function ( $c ) use ( $keep ) {
-					return null === $c['currency'] || $keep === $c['currency'];
+					return $keep === $c['currency'];
 				}
 			)
 		);

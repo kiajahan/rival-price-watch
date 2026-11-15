@@ -372,8 +372,9 @@ class RPW_Checker {
 
 		// Currency: the one chosen for this link, else what the page says, else the shop's own.
 		$from = '' !== $link['currency'] ? $link['currency'] : RPW_Currency::normalize( $found['currency'] );
-		$from = $from ? $from : RPW_Currency::shop();
-		$raw  = round( (float) $found['price'] * (float) $link['factor'], 4 );
+		$assumed = ! $from;
+		$from    = $from ? $from : RPW_Currency::shop();
+		$raw     = round( (float) $found['price'] * (float) $link['factor'], 4 );
 
 		$row['raw_price']    = $raw;
 		$row['raw_currency'] = $from;
@@ -382,6 +383,10 @@ class RPW_Checker {
 		$row['message']      = $found['source'];
 		if ( ! empty( $found['name'] ) ) {
 			$row['message'] .= ' | ' . $found['name'] . ( ! empty( $found['sku'] ) ? ' [' . $found['sku'] . ']' : '' );
+		}
+		if ( $assumed ) {
+			/* translators: %s: currency code that was assumed. */
+			$row['message'] .= ' | ' . sprintf( __( 'The page does not state a currency; %s was assumed. Choose the currency for this link to be sure.', 'rival-price-watch' ), $from );
 		}
 
 		$converted = RPW_Currency::to_shop( $raw, $from );
@@ -641,6 +646,40 @@ class RPW_Checker {
 	}
 
 	/**
+	 * How long a link's last real answer stands in for a failed fetch when deciding alerts.
+	 */
+	const ALERT_GRACE = 604800; // 7 days.
+
+	/**
+	 * Markets for alert decisions.
+	 *
+	 * A fetch that failed (timeout, HTTP error) says nothing about the rival's price,
+	 * so for such a link the last result where its page really answered is used
+	 * (up to ALERT_GRACE old). A temporary failure therefore neither clears the
+	 * "already emailed" record nor drops an alert that is waiting to be sent.
+	 *
+	 * @param int $product_id Product ID.
+	 * @return array See markets_from().
+	 */
+	public static function alert_markets( $product_id ) {
+		$product = wc_get_product( $product_id );
+		$shop_p  = $product ? (float) $product->get_price() : 0.0;
+		$links   = RPW_Settings::links( $product_id );
+		$latest  = RPW_DB::latest_for_product( $product_id );
+		$since   = gmdate( 'Y-m-d H:i:s', time() - self::ALERT_GRACE );
+		foreach ( $links as $link ) {
+			$hash = RPW_DB::hash( $link['url'] );
+			if ( isset( $latest[ $hash ] ) && 'error' === $latest[ $hash ]->status ) {
+				$answered = RPW_DB::last_answered( $product_id, $hash, $since );
+				if ( $answered ) {
+					$latest[ $hash ] = $answered;
+				}
+			}
+		}
+		return self::markets_from( $shop_p, $links, $latest, RPW_Settings::market_prices( $product_id ) );
+	}
+
+	/**
 	 * Remember a product for the alert email if a rival is cheaper and the
 	 * situation changed since the last alert that was really sent.
 	 *
@@ -659,7 +698,7 @@ class RPW_Checker {
 		$pending = is_array( $pending ) ? $pending : array();
 		$was     = array( $alerted, $pending );
 		$min     = (float) RPW_Settings::get( 'alert_percent' );
-		$markets = self::markets( $product_id );
+		$markets = self::alert_markets( $product_id );
 
 		// One check per market (currency): compare in that currency.
 		foreach ( $markets as $cur => $m ) {
@@ -759,7 +798,10 @@ class RPW_Checker {
 		$groups = array();
 		$sent   = array();
 		foreach ( $ids as $pid ) {
-			$pid     = (int) $pid;
+			$pid = (int) $pid;
+			// The alert may have waited (email retry): check it again against today's own price,
+			// links, rival prices and threshold, so the email never reports a comparison that is no longer true.
+			self::collect_alert( $pid );
 			$pending = get_post_meta( $pid, '_rpw_pending', true );
 			$product = wc_get_product( $pid );
 			if ( ! $product || ! is_array( $pending ) || ! $pending ) {
@@ -783,6 +825,10 @@ class RPW_Checker {
 			}
 		}
 		if ( ! $sent ) {
+			// Every waiting alert turned out to be no longer true: nothing is left to retry.
+			delete_option( 'rpw_alert_retries' );
+			delete_option( 'rpw_alert_error' );
+			wp_clear_scheduled_hook( self::HOOK_ALERTS );
 			return null;
 		}
 

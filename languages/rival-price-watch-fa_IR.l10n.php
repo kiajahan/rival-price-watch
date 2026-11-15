@@ -80,6 +80,7 @@ return ['domain'=>'rival-price-watch','plural-forms'=>'nplurals=1; plural=0;','l
 'The site may be blocking automatic checks.'=>'ممکن است آن سایت بررسی خودکار را مسدود کرده باشد.',
 'None of the %2$d offers on the page matches "%1$s". Check the variant text for this link.'=>'هیچ‌کدام از %2$d پیشنهاد این صفحه با «%1$s» جور نیست. متن «مدل» این لینک را بررسی کنید.',
 'No price found on the page. The site does not publish price data that can be read automatically.'=>'قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند.',
+'The page does not state a currency; %s was assumed. Choose the currency for this link to be sure.'=>'صفحه واحد پول را مشخص نکرده است؛ %s در نظر گرفته شد. برای اطمینان، واحد پول این لینک را انتخاب کنید.',
 'This site sells in %1$s. Add a %1$s to %2$s exchange rate in Settings to compare it.'=>'این سایت با %1$s می‌فروشد. برای مقایسه، نرخ تبدیل %1$s به %2$s را در تنظیمات وارد کنید.',
 '- %1$s: your price %2$s, %3$s sells it for %4$s (%5$s)'=>'- %1$s: قیمت شما %2$s، %3$s آن را %4$s می‌فروشد (%5$s)',
 'The alert email address in Settings is not valid.'=>'نشانی ایمیل هشدار در تنظیمات معتبر نیست.',

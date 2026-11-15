@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Rival Price Watch 0.2.0\n"
+"Project-Id-Version: Rival Price Watch 0.2.2\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -265,6 +265,10 @@ msgstr "هیچ‌کدام از %2$d پیشنهاد این صفحه با «%1$s»
 
 msgid "No price found on the page. The site does not publish price data that can be read automatically."
 msgstr "قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند."
+
+#, php-format
+msgid "The page does not state a currency; %s was assumed. Choose the currency for this link to be sure."
+msgstr "صفحه واحد پول را مشخص نکرده است؛ %s در نظر گرفته شد. برای اطمینان، واحد پول این لینک را انتخاب کنید."
 
 #, php-format
 msgid "This site sells in %1$s. Add a %1$s to %2$s exchange rate in Settings to compare it."

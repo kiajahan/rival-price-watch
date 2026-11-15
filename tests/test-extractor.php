@@ -172,7 +172,12 @@ $r = RPW_Extractor::extract( $multi, '', 'gbp' );
 rpw_eq( 90.0, $r['price'], 'mixed currencies: the link currency is preferred' );
 rpw_eq( 'GBP', $r['currency'], 'mixed currencies: preferred currency reported' );
 rpw_eq( 100.0, RPW_Extractor::extract( $multi, '', 'EUR' )['price'], 'mixed currencies: unknown preference falls back to the first' );
-rpw_eq( 80.0, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":[{"@type":"Offer","price":"100","priceCurrency":"USD"},{"@type":"Offer","price":"80"}]}</script>' )['price'], 'offer without a currency is still compared' );
+$r = RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":[{"@type":"Offer","price":"100","priceCurrency":"EUR"},{"@type":"Offer","price":"80"}]}</script>' );
+rpw_eq( 100.0, $r['price'], 'an offer with no currency is not compared with offers that state one' );
+rpw_eq( 'EUR', $r['currency'], 'the offer with a stated currency is used' );
+$r = RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":[{"@type":"Offer","price":"100"},{"@type":"Offer","price":"80"}]}</script>' );
+rpw_eq( 80.0, $r['price'], 'when no offer states a currency, all are compared' );
+rpw_eq( null, $r['currency'], 'and the currency is reported as unknown' );
 
 // Odd data must not break the reader.
 rpw_eq( null, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":["Product"],"offers":{"price":{"x":1},"priceCurrency":["USD"]}}</script>' )['price'], 'non-scalar price ignored' );
