@@ -49,7 +49,7 @@ class RPW_Metabox {
 					<th><?php esc_html_e( 'Competitor product link', 'rival-price-watch' ); ?></th>
 					<th><?php esc_html_e( 'Name (optional)', 'rival-price-watch' ); ?></th>
 					<th title="<?php esc_attr_e( 'Only needed when the competitor page lists several versions of the product. Type the SKU or barcode of the right one, or words that describe it, for example: 256GB black. Leave empty to use the first product on the page.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Variant (optional)', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
-					<th title="<?php esc_attr_e( 'Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, your shop currency is assumed.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Currency', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
+					<th title="<?php esc_attr_e( 'Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, the link is not compared until you choose one here.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Currency', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th title="<?php esc_attr_e( 'The competitor price is multiplied by this number before comparing, for example 1.1 if the site shows prices without a 10% tax. Leave it at 1 in most cases.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Price × ', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th></th>
 				</tr>

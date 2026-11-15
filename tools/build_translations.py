@@ -70,8 +70,6 @@ FA = {
     'days': 'روز',
     'The page answered with HTTP %d.': 'صفحه با کد HTTP %d پاسخ داد.',
     'The site may be blocking automatic checks.': 'ممکن است آن سایت بررسی خودکار را مسدود کرده باشد.',
-    'The page does not state a currency; %s was assumed. Choose the currency for this link to be sure.':
-        'صفحه واحد پول را مشخص نکرده است؛ %s در نظر گرفته شد. برای اطمینان، واحد پول این لینک را انتخاب کنید.',
     'No price found on the page. The site does not publish price data that can be read automatically.':
         'قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند.',
     '- %1$s: your price %2$s, %3$s sells it for %4$s (%5$s)': '- %1$s: قیمت شما %2$s، %3$s آن را %4$s می‌فروشد (%5$s)',
@@ -106,8 +104,8 @@ FA = {
     # Currencies.
     'Currency': 'واحد پول',
     'Auto-detect': 'تشخیص خودکار',
-    'Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, your shop currency is assumed.':
-        'این سایت با چه واحد پولی می‌فروشد. «تشخیص خودکار» آن را از صفحه می‌خواند؛ اگر صفحه چیزی نگوید، واحد پول فروشگاه شما در نظر گرفته می‌شود.',
+    'Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, the link is not compared until you choose one here.':
+        'این سایت با چه واحد پولی می‌فروشد. «تشخیص خودکار» آن را از صفحه می‌خواند؛ اگر صفحه چیزی نگوید، تا وقتی واحد پول را اینجا انتخاب نکنید این لینک مقایسه نمی‌شود.',
     'The competitor price is multiplied by this number before comparing, for example 1.1 if the site shows prices without a 10% tax. Leave it at 1 in most cases.':
         'قیمت رقیب پیش از مقایسه در این عدد ضرب می‌شود؛ مثلاً 1.1 اگر آن سایت قیمت را بدون ۱۰٪ مالیات نشان می‌دهد. در بیشتر موارد آن را 1 بگذارید.',
     'This site sells in %1$s. Add a %1$s to %2$s exchange rate in Settings to compare it.':
@@ -213,8 +211,6 @@ FA = {
         'محصول در صفحه: %s',
     'Read from: %s':
         'خوانده\u200cشده از: %s',
-    'The page does not say which currency this is, so your shop currency (%s) was assumed. Choose the currency for this link if that is wrong.':
-        'صفحه نگفته این قیمت به چه واحد پولی است؛ برای همین واحد پول فروشگاه شما (%s) در نظر گرفته شد. اگر درست نیست، واحد پول این لینک را انتخاب کنید.',
     'This page lists %d offers or versions. The cheapest one in stock of the first product was used. Fill in "Variant" to pick the right one.':
         'این صفحه %d پیشنهاد یا مدل دارد. ارزان\u200cترین مدل موجودِ اولین محصول انتخاب شد. برای انتخاب مدل درست، خانه «مدل» را پر کنید.',
     'This page does not describe its versions in a way that can be read, so the variant text could not be checked.':
@@ -223,6 +219,10 @@ FA = {
         'آخرین ایمیل هشدار فرستاده نشد (%s). هشدارها نگه داشته شده\u200cاند و دوباره برای ارسال تلاش می\u200cشود.',
     'variant not found':
         'مدل پیدا نشد',
+    'currency unknown':
+        'واحد پول نامشخص',
+    'The page shows the price %s but does not say which currency it is in. Choose the currency for this link to compare it.':
+        'صفحه قیمت %s را نشان می‌دهد اما نمی‌گوید به چه واحد پولی است. برای مقایسه، واحد پول این لینک را انتخاب کنید.',
     'Only when the competitor is cheaper by at least':
         'فقط وقتی رقیب دست\u200cکم این\u200cقدر ارزان\u200cتر است:',
 }
@@ -270,7 +270,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.2.2\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.3\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

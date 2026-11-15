@@ -484,6 +484,28 @@ try {
 	$own_part = preg_match( '/' . preg_quote( $own->get_name(), '/' ) . ': ([^,]+),/u', $msg, $mm ) ? $mm[1] : '';
 	rpw_eq( true, false !== strpos( $own_part, '95' ) && false === strpos( $own_part, '90' ), 'with the current own price, not the one from when it was queued' );
 
+	// ----------------------------- 6d. a page that states no currency.
+	echo "\n# Strict currency: unknown currency is never compared\n";
+	$p8                        = rpw_product( 100, array( $base . 'nc' ) );
+	$created[]                 = $p8;
+	$h8                        = RPW_DB::hash( $base . 'nc' );
+	$rpw_pages[ $base . 'nc' ] = rpw_page( 10, '' );
+	$mails_before              = count( $rpw_mails );
+	RPW_Checker::check_product( $p8 );
+	$last = RPW_DB::latest_for_product( $p8 )[ $h8 ] ?? null;
+	rpw_eq( 'nocurrency', $last->status ?? null, 'no currency on the page and none chosen: status "currency unknown"' );
+	rpw_eq( null, $last ? $last->price : 'no row', 'no comparable price is saved' );
+	rpw_eq( 10.0, (float) ( $last->raw_price ?? 0 ), 'the number on the page is kept for information' );
+	rpw_eq( null, RPW_Checker::summary( $p8 )['lowest'], 'it is not used as the cheapest rival' );
+	rpw_eq( $mails_before, count( $rpw_mails ), 'and no alert is sent' );
+	$links8                = RPW_Settings::links( $p8 );
+	$links8[0]['currency'] = $shop;
+	update_post_meta( $p8, '_rpw_links', $links8 );
+	RPW_Checker::check_product( $p8 );
+	$last = RPW_DB::latest_for_product( $p8 )[ $h8 ] ?? null;
+	rpw_eq( 'ok', $last->status ?? null, 'after choosing the link currency the price is compared' );
+	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'and the cheaper rival is emailed' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

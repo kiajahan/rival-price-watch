@@ -370,11 +370,21 @@ class RPW_Checker {
 			return compact( 'row', 'found' );
 		}
 
-		// Currency: the one chosen for this link, else what the page says, else the shop's own.
+		// Currency: the one chosen for this link, else what the page says. Nothing is assumed.
 		$from = '' !== $link['currency'] ? $link['currency'] : RPW_Currency::normalize( $found['currency'] );
-		$assumed = ! $from;
-		$from    = $from ? $from : RPW_Currency::shop();
-		$raw     = round( (float) $found['price'] * (float) $link['factor'], 4 );
+		$raw  = round( (float) $found['price'] * (float) $link['factor'], 4 );
+		if ( ! $from ) {
+			// Strict: a price whose currency is unknown is never compared or used for alerts.
+			$row['status']    = 'nocurrency';
+			$row['raw_price'] = $raw;
+			$row['in_stock']  = $found['in_stock'];
+			$row['message']   = sprintf(
+				/* translators: %s: the number found on the competitor page. */
+				__( 'The page shows the price %s but does not say which currency it is in. Choose the currency for this link to compare it.', 'rival-price-watch' ),
+				rtrim( rtrim( number_format( $raw, 4, '.', ',' ), '0' ), '.' )
+			);
+			return compact( 'row', 'found' );
+		}
 
 		$row['raw_price']    = $raw;
 		$row['raw_currency'] = $from;
@@ -383,10 +393,6 @@ class RPW_Checker {
 		$row['message']      = $found['source'];
 		if ( ! empty( $found['name'] ) ) {
 			$row['message'] .= ' | ' . $found['name'] . ( ! empty( $found['sku'] ) ? ' [' . $found['sku'] . ']' : '' );
-		}
-		if ( $assumed ) {
-			/* translators: %s: currency code that was assumed. */
-			$row['message'] .= ' | ' . sprintf( __( 'The page does not state a currency; %s was assumed. Choose the currency for this link to be sure.', 'rival-price-watch' ), $from );
 		}
 
 		$converted = RPW_Currency::to_shop( $raw, $from );

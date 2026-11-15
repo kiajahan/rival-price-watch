@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.2
+Stable tag: 0.2.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,9 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.3 =
+* Changed: a price is never assumed to be in your shop currency. When a page states no currency and none is chosen for the link, the link shows "currency unknown" and is not compared or used for alerts until you choose its currency.
 
 = 0.2.2 =
 * Fixed: a failed check (timeout, HTTP error) no longer resets the alert history. The link's last real answer is used for up to 7 days, so the same price is not emailed twice and a waiting alert is not dropped.

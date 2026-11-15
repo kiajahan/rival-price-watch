@@ -182,10 +182,6 @@ class RPW_Admin {
 			/* translators: %s: where the price was read from, e.g. json-ld. */
 			$lines[] = sprintf( __( 'Read from: %s', 'rival-price-watch' ), $found['source'] );
 
-			if ( '' === $link['currency'] && empty( $found['currency'] ) ) {
-				/* translators: %s: currency code. */
-				$warn[] = sprintf( __( 'The page does not say which currency this is, so your shop currency (%s) was assumed. Choose the currency for this link if that is wrong.', 'rival-price-watch' ), RPW_Currency::shop() );
-			}
 			if ( '' === $link['match'] && (int) $found['candidates'] > 1 ) {
 				/* translators: %d: number of offers. */
 				$warn[] = sprintf( __( 'This page lists %d offers or versions. The cheapest one in stock of the first product was used. Fill in "Variant" to pick the right one.', 'rival-price-watch' ), (int) $found['candidates'] );
@@ -575,6 +571,9 @@ class RPW_Admin {
 		}
 		if ( 'nomatch' === $status ) {
 			return __( 'variant not found', 'rival-price-watch' );
+		}
+		if ( 'nocurrency' === $status ) {
+			return __( 'currency unknown', 'rival-price-watch' );
 		}
 		return __( 'error', 'rival-price-watch' );
 	}
