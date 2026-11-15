@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,14 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.1 =
+* Fixed: a variant hint that is an exact SKU, GTIN or MPN now always picks that offer, even when another offer whose code only contains it is cheaper.
+* Fixed: for an AggregateOffer, the individual offers inside it are read first, so a sold-out variant's low price is no longer used and every variant can be matched. lowPrice is used only when there are no individual offers.
+* Fixed: offers in different currencies are no longer compared as bare numbers. The link's currency is preferred, otherwise the page's first currency.
+* Fixed: "Check now" no longer drops a queued retry when the check fails for a temporary reason (timeout, HTTP 429 / 5xx); the retry is kept or added.
+* Fixed: a check whose result could not be saved to the database is tried again instead of being treated as done.
+* Fixed: if a background batch stops unexpectedly, a recovery batch is already scheduled, so the queue continues on its own.
 
 = 0.2.0 =
 * Fixed: prices with three decimals (for example 1.234 KWD) in meta tags and microdata were read as 1234.

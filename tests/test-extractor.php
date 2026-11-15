@@ -143,6 +143,37 @@ $offers = '<script type="application/ld+json">{"@type":"Product","name":"Tablet"
 rpw_eq( 300.0, RPW_Extractor::extract( $offers )['price'], 'offers of one product: lowest without a hint' );
 rpw_eq( 380.0, RPW_Extractor::extract( $offers, 'tablet 128' )['price'], 'offer name and product name both match' );
 
+// An exact identifier beats a cheaper offer whose identifier only contains it.
+$exact = '<script type="application/ld+json">{"@type":"Product","name":"Shirt","offers":[{"@type":"Offer","sku":"ABC","price":"100","priceCurrency":"USD","availability":"https://schema.org/InStock"},{"@type":"Offer","sku":"ABC-XL","price":"50","priceCurrency":"USD","availability":"https://schema.org/InStock"}]}</script>';
+$r     = RPW_Extractor::extract( $exact, 'ABC' );
+rpw_eq( 100.0, $r['price'], 'exact SKU wins over a cheaper SKU that contains it' );
+rpw_eq( 'ABC', $r['sku'], 'exact SKU reported' );
+rpw_eq( 50.0, RPW_Extractor::extract( $exact, 'abc-xl' )['price'], 'other exact SKU, any case' );
+rpw_eq( 50.0, RPW_Extractor::extract( $exact, 'shirt' )['price'], 'words still match every offer, lowest wins' );
+
+// AggregateOffer: nested offers first, lowPrice only as a fallback.
+$agg = '<script type="application/ld+json">{"@type":"Product","name":"Phone","offers":{"@type":"AggregateOffer","lowPrice":"10","highPrice":"100","priceCurrency":"USD","offers":[{"@type":"Offer","sku":"P-OLD","price":"10","availability":"https://schema.org/OutOfStock"},{"@type":"Offer","sku":"P-NEW","price":"100","availability":"https://schema.org/InStock"}]}}</script>';
+$r   = RPW_Extractor::extract( $agg );
+rpw_eq( 100.0, $r['price'], 'aggregate: the in-stock nested offer, not lowPrice of a sold-out one' );
+rpw_eq( true, $r['in_stock'], 'aggregate: stock known from the nested offer' );
+rpw_eq( 'USD', $r['currency'], 'aggregate: nested offer takes the parent currency' );
+$r = RPW_Extractor::extract( $agg, 'P-NEW' );
+rpw_eq( 100.0, $r['price'], 'aggregate: nested variant can be matched by SKU' );
+rpw_eq( true, $r['matched'], 'aggregate: nested variant matched' );
+rpw_eq( 10.0, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":{"@type":"AggregateOffer","lowPrice":"10","highPrice":"20","priceCurrency":"USD"}}</script>' )['price'], 'aggregate without nested offers: lowPrice' );
+rpw_eq( 15.0, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":{"@type":"AggregateOffer","lowPrice":"15","offers":[{"@type":"Offer"}]}}</script>' )['price'], 'aggregate whose nested offers have no price: lowPrice' );
+
+// Offers in different currencies are not compared as bare numbers.
+$multi = '<script type="application/ld+json">{"@type":"Product","name":"Lamp","offers":[{"@type":"Offer","price":"100","priceCurrency":"USD"},{"@type":"Offer","price":"90","priceCurrency":"GBP"}]}</script>';
+$r     = RPW_Extractor::extract( $multi );
+rpw_eq( 100.0, $r['price'], 'mixed currencies: compared within the first currency only' );
+rpw_eq( 'USD', $r['currency'], 'mixed currencies: first currency kept' );
+$r = RPW_Extractor::extract( $multi, '', 'gbp' );
+rpw_eq( 90.0, $r['price'], 'mixed currencies: the link currency is preferred' );
+rpw_eq( 'GBP', $r['currency'], 'mixed currencies: preferred currency reported' );
+rpw_eq( 100.0, RPW_Extractor::extract( $multi, '', 'EUR' )['price'], 'mixed currencies: unknown preference falls back to the first' );
+rpw_eq( 80.0, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":[{"@type":"Offer","price":"100","priceCurrency":"USD"},{"@type":"Offer","price":"80"}]}</script>' )['price'], 'offer without a currency is still compared' );
+
 // Odd data must not break the reader.
 rpw_eq( null, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":["Product"],"offers":{"price":{"x":1},"priceCurrency":["USD"]}}</script>' )['price'], 'non-scalar price ignored' );
 rpw_eq( 5.0, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"WebPage","mainEntity":{"@type":"Product","offers":{"price":5}}}</script>' )['price'], 'product inside mainEntity' );

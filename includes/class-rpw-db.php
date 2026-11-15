@@ -165,10 +165,11 @@ class RPW_DB {
 	 * @param int    $product_id Product ID.
 	 * @param string $url        Competitor URL.
 	 * @param array  $row        price, currency, in_stock, status, message.
+	 * @return bool True when the row was written.
 	 */
 	public static function add( $product_id, $url, array $row ) {
 		global $wpdb;
-		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$written = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			self::table(),
 			array(
 				'product_id'   => (int) $product_id,
@@ -185,6 +186,7 @@ class RPW_DB {
 			)
 		);
 		unset( self::$latest[ (int) $product_id ] );
+		return is_int( $written ) && $written > 0;
 	}
 
 	/**

@@ -169,6 +169,14 @@ class RPW_Checker {
 		}
 		RPW_Jobs::release_stalled();
 
+		// Watchdog, set before any work: if this worker dies mid-batch (fatal error, timeout,
+		// server restart), this event still fires after its claimed jobs count as stalled,
+		// so the queue continues without waiting for another visit or the next scheduled run.
+		if ( RPW_Jobs::count() > 0 ) {
+			wp_clear_scheduled_hook( self::HOOK_CONTINUE );
+			wp_schedule_single_event( time() + RPW_Jobs::STALL_SECONDS + MINUTE_IN_SECONDS, self::HOOK_CONTINUE );
+		}
+
 		$started = microtime( true );
 		$done    = 0;
 		while ( $done < self::BATCH ) {
@@ -193,7 +201,8 @@ class RPW_Checker {
 			$row = self::check_link( $pid, $link );
 			++$done;
 			// Each result is final as soon as it is saved: the job is removed (or put back for a retry) now, not at the end of the batch.
-			if ( ! empty( $row['retry'] ) ) {
+			// A result that could not be saved is not acknowledged; it is tried again like a temporary failure.
+			if ( self::needs_retry( $row ) ) {
 				RPW_Jobs::retry( $job, 5 * MINUTE_IN_SECONDS * ( 1 + 2 * (int) $job->attempts ) );
 			} else {
 				RPW_Jobs::complete( $job );
@@ -202,11 +211,11 @@ class RPW_Checker {
 		}
 		RPW_Jobs::unlock( self::LOCK, $lock );
 
+		// The batch ended normally: replace the watchdog with the real next batch.
+		wp_clear_scheduled_hook( self::HOOK_CONTINUE );
 		if ( RPW_Jobs::count() > 0 ) {
 			$next = RPW_Jobs::next_time();
-			if ( ! wp_next_scheduled( self::HOOK_CONTINUE ) ) {
-				wp_schedule_single_event( max( time() + MINUTE_IN_SECONDS, (int) $next ), self::HOOK_CONTINUE );
-			}
+			wp_schedule_single_event( max( time() + MINUTE_IN_SECONDS, (int) $next ), self::HOOK_CONTINUE );
 			return;
 		}
 
@@ -252,9 +261,14 @@ class RPW_Checker {
 			if ( $checked > 0 ) {
 				sleep( $delay );
 			}
-			self::check_link( $product_id, $link );
-			// This link is fresh now; a copy still waiting in the queue is not needed.
-			RPW_Jobs::clear( $product_id, $hash );
+			$row = self::check_link( $product_id, $link );
+			if ( self::needs_retry( $row ) ) {
+				// Temporary failure, or the result was not saved: keep (or add) a queued job so the background tries again.
+				RPW_Jobs::enqueue( $product_id, $hash, 5 * MINUTE_IN_SECONDS );
+			} else {
+				// This link is fresh now; a copy still waiting in the queue is not needed.
+				RPW_Jobs::clear( $product_id, $hash );
+			}
 			++$checked;
 		}
 		remove_filter( 'rpw_request_args', $short, 99 );
@@ -332,7 +346,7 @@ class RPW_Checker {
 		}
 
 		$match = isset( $link['match'] ) ? (string) $link['match'] : '';
-		$found = RPW_Extractor::extract( wp_remote_retrieve_body( $response ), $match );
+		$found = RPW_Extractor::extract( wp_remote_retrieve_body( $response ), $match, isset( $link['currency'] ) ? (string) $link['currency'] : '' );
 
 		/**
 		 * Filter the extracted result, e.g. to add support for a site
@@ -387,11 +401,23 @@ class RPW_Checker {
 	 * @param int   $product_id Product ID.
 	 * @param array $link       url, label, factor, currency, match.
 	 * @return array Saved row. "retry" is true when the failure may pass (timeout, HTTP 429 / 5xx).
+	 *               "saved" is false when the result could not be written to the database.
 	 */
 	public static function check_link( $product_id, array $link ) {
-		$result = self::inspect_link( $product_id, $link );
-		RPW_DB::add( $product_id, $link['url'], $result['row'] );
-		return $result['row'];
+		$result       = self::inspect_link( $product_id, $link );
+		$row          = $result['row'];
+		$row['saved'] = RPW_DB::add( $product_id, $link['url'], $row );
+		return $row;
+	}
+
+	/**
+	 * Should this result be checked again later instead of being treated as done?
+	 *
+	 * @param array $row Row from check_link().
+	 * @return bool True for temporary failures and for results that were not saved.
+	 */
+	private static function needs_retry( array $row ) {
+		return ! empty( $row['retry'] ) || ( isset( $row['saved'] ) && false === $row['saved'] );
 	}
 
 	/**

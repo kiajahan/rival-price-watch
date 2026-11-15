@@ -370,6 +370,69 @@ try {
 	rpw_eq( 10.0, (float) ( $latest[ RPW_DB::hash( $base . 'Item/AbC' ) ]->price ?? 0 ), 'first link has its own price' );
 	rpw_eq( 20.0, (float) ( $latest[ RPW_DB::hash( $base . 'Item/abc' ) ]->price ?? 0 ), 'second link has its own price' );
 
+	// ------------------------- 6b. retries, failed saves and the watchdog.
+	echo "\n# Check now keeps retries, failed saves are not lost, watchdog\n";
+	$p6                        = rpw_product( 70, array( $base . 'r1' ) );
+	$created[]                 = $p6;
+	$h6                        = RPW_DB::hash( $base . 'r1' );
+	$rpw_pages[ $base . 'r1' ] = 503;
+	RPW_Jobs::enqueue( $p6, $h6 );
+	RPW_Checker::check_product( $p6 );
+	rpw_eq( 1, rpw_jobs_of( $p6 ), 'Check now with HTTP 503 keeps the queued job for a retry' );
+	$wpdb->query( $wpdb->prepare( "DELETE FROM {$jobs} WHERE product_id = %d", $p6 ) ); // phpcs:ignore
+	RPW_Checker::check_product( $p6 );
+	rpw_eq( 1, rpw_jobs_of( $p6 ), 'Check now with HTTP 503 queues a retry when none was waiting' );
+	rpw_eq( null, RPW_Jobs::claim(), 'the retry waits before it runs' );
+	$rpw_pages[ $base . 'r1' ] = rpw_page( 65, $shop );
+	RPW_Checker::check_product( $p6 );
+	rpw_eq( 0, rpw_jobs_of( $p6 ), 'a successful Check now removes the waiting retry' );
+
+	// The database refuses the insert: the check must not count as done.
+	$prices_table = RPW_DB::table();
+	$break_insert = static function ( $q ) use ( $prices_table ) {
+		return ( 0 === stripos( ltrim( $q ), 'INSERT' ) && false !== strpos( $q, $prices_table ) ) ? 'INSERT INTO rpw_no_such_table_xyz (a) VALUES (1)' : $q;
+	};
+	$wpdb->suppress_errors( true );
+	add_filter( 'query', $break_insert );
+	$rpw_pages[ $base . 'r1' ] = rpw_page( 64, $shop );
+	$row                       = RPW_Checker::check_link( $p6, RPW_Settings::links( $p6 )[0] );
+	rpw_eq( false, $row['saved'], 'a failed database write is reported' );
+	RPW_Checker::check_product( $p6 );
+	rpw_eq( 1, rpw_jobs_of( $p6 ), 'Check now whose save failed leaves a job for the background' );
+	$wpdb->query( $wpdb->prepare( "UPDATE {$jobs} SET available_at = %s WHERE product_id = %d", gmdate( 'Y-m-d H:i:s', time() - 5 ), $p6 ) ); // phpcs:ignore
+	wp_clear_scheduled_hook( RPW_Checker::HOOK_CONTINUE );
+	RPW_Checker::process_queue();
+	$left = $wpdb->get_row( $wpdb->prepare( "SELECT attempts, claim FROM {$jobs} WHERE product_id = %d", $p6 ) ); // phpcs:ignore
+	rpw_eq( 1, $left ? (int) $left->attempts : -1, 'a background check whose save failed is put back, not deleted' );
+	rpw_eq( '', $left ? (string) $left->claim : 'gone', 'and is free for the next worker' );
+	remove_filter( 'query', $break_insert );
+	$wpdb->suppress_errors( false );
+	rpw_eq( true, RPW_Checker::check_link( $p6, RPW_Settings::links( $p6 )[0] )['saved'], 'a working database write is reported as saved' );
+
+	// The watchdog is scheduled before the batch does any work.
+	$seen     = array();
+	$watchdog = static function ( $pre, $args, $url ) use ( &$seen ) {
+		if ( false !== strpos( $url, 'rpw-test.invalid' ) ) {
+			$seen[] = wp_next_scheduled( RPW_Checker::HOOK_CONTINUE );
+		}
+		return $pre;
+	};
+	add_filter( 'pre_http_request', $watchdog, 5, 3 );
+	$wpdb->query( $wpdb->prepare( "UPDATE {$jobs} SET available_at = %s WHERE product_id = %d", gmdate( 'Y-m-d H:i:s', time() - 5 ), $p6 ) ); // phpcs:ignore
+	wp_clear_scheduled_hook( RPW_Checker::HOOK_CONTINUE );
+	$t0 = time();
+	RPW_Checker::process_queue();
+	remove_filter( 'pre_http_request', $watchdog, 5 );
+	rpw_eq( true, isset( $seen[0] ) && $seen[0] >= $t0 + RPW_Jobs::STALL_SECONDS, 'a recovery batch is already scheduled while a check runs (after the stall time)' );
+	rpw_eq( 0, rpw_jobs_of( $p6 ), 'the batch finished the job' );
+	rpw_eq( false, (bool) wp_next_scheduled( RPW_Checker::HOOK_CONTINUE ), 'a finished queue leaves no recovery batch behind' );
+	RPW_Jobs::enqueue( $p6, $h6, HOUR_IN_SECONDS );
+	RPW_Checker::process_queue();
+	$next = wp_next_scheduled( RPW_Checker::HOOK_CONTINUE );
+	rpw_eq( true, $next && $next >= time() + HOUR_IN_SECONDS - 5, 'with work waiting, the watchdog is replaced by the real next batch' );
+	RPW_Jobs::clear( $p6 );
+	wp_clear_scheduled_hook( RPW_Checker::HOOK_CONTINUE );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

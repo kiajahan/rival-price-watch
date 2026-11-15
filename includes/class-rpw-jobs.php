@@ -73,14 +73,15 @@ class RPW_Jobs {
 	/**
 	 * Queue links. A link that is already queued is left as it is.
 	 *
-	 * @param array<int, array{0: int, 1: string}> $jobs Pairs of product ID and link hash.
+	 * @param array<int, array{0: int, 1: string}> $jobs  Pairs of product ID and link hash.
+	 * @param int                                   $delay Seconds before the jobs may run.
 	 * @return int How many were added.
 	 */
-	public static function enqueue_many( array $jobs ) {
+	public static function enqueue_many( array $jobs, $delay = 0 ) {
 		global $wpdb;
 		$table = self::table();
 		$added = 0;
-		$now   = self::now();
+		$now   = self::now( max( 0, (int) $delay ) );
 		foreach ( array_chunk( $jobs, 200 ) as $chunk ) {
 			$values = array();
 			foreach ( $chunk as $job ) {
@@ -99,10 +100,11 @@ class RPW_Jobs {
 	 *
 	 * @param int    $product_id Product ID.
 	 * @param string $hash       Link hash.
+	 * @param int    $delay      Seconds before the job may run.
 	 * @return bool True when it was added, false when it was already queued.
 	 */
-	public static function enqueue( $product_id, $hash ) {
-		return 1 === self::enqueue_many( array( array( (int) $product_id, (string) $hash ) ) );
+	public static function enqueue( $product_id, $hash, $delay = 0 ) {
+		return 1 === self::enqueue_many( array( array( (int) $product_id, (string) $hash ) ), $delay );
 	}
 
 	/**

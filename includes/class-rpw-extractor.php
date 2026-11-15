@@ -29,10 +29,12 @@ class RPW_Extractor {
 	 * @param string $match Optional variant hint: a SKU / GTIN / MPN, or words that must all
 	 *                      appear in the offer (for example "256GB black"). Only JSON-LD can be
 	 *                      matched; for meta tags and microdata "matched" stays null (not verified).
+	 * @param string $currency Optional currency the link is expected in. When a page lists offers in
+	 *                         several currencies, only offers in this one are compared.
 	 * @return array{price: float|null, currency: string|null, in_stock: bool|null, source: string, name: string, sku: string, candidates: int, matched: bool|null}
 	 */
-	public static function extract( $html, $match = '' ) {
-		$result = self::extract_structured( $html, (string) $match );
+	public static function extract( $html, $match = '', $currency = '' ) {
+		$result = self::extract_structured( $html, (string) $match, (string) $currency );
 		if ( null !== $result['price'] && in_array( $result['currency'], array( 'IRR', 'IRT', null ), true ) ) {
 			$shown = self::shown_iranian_unit( $html, $result['price'] );
 			if ( $shown && $shown !== $result['currency'] ) {
@@ -111,10 +113,11 @@ class RPW_Extractor {
 	 * Read price data from JSON-LD, meta tags or microdata.
 	 *
 	 * @param string $html  Page HTML.
-	 * @param string $match Optional variant hint (SKU, GTIN, or words such as "256GB black").
+	 * @param string $match    Optional variant hint (SKU, GTIN, or words such as "256GB black").
+	 * @param string $currency Optional preferred currency code.
 	 * @return array See extract().
 	 */
-	private static function extract_structured( $html, $match = '' ) {
+	private static function extract_structured( $html, $match = '', $currency = '' ) {
 		$result = self::blank();
 		if ( ! is_string( $html ) || '' === trim( $html ) ) {
 			return $result;
@@ -123,7 +126,7 @@ class RPW_Extractor {
 		// 1. JSON-LD.
 		$candidates = self::jsonld_candidates( $html );
 		if ( $candidates ) {
-			return self::choose( $candidates, $match );
+			return self::choose( $candidates, $match, $currency );
 		}
 
 		$dom = self::load_dom( $html );
@@ -393,7 +396,9 @@ class RPW_Extractor {
 				$in_stock = $inherit['in_stock'];
 			}
 
-			if ( null === $raw && isset( $offer['offers'] ) ) {
+			// Detailed offers inside an AggregateOffer come first: they carry each variant's
+			// identifiers and stock. lowPrice / highPrice are used only when there are none.
+			if ( isset( $offer['offers'] ) && is_array( $offer['offers'] ) ) {
 				$nested = self::flatten_offers(
 					$offer['offers'],
 					array(
@@ -402,7 +407,12 @@ class RPW_Extractor {
 					),
 					$depth + 1
 				);
-				$out    = array_merge( $out, $nested );
+				if ( $nested ) {
+					$out = array_merge( $out, $nested );
+					continue;
+				}
+			}
+			if ( null === $raw ) {
 				continue;
 			}
 
@@ -428,18 +438,27 @@ class RPW_Extractor {
 	 *
 	 * @param array  $candidates Offers from jsonld_candidates().
 	 * @param string $match      Variant hint.
+	 * @param string $currency   Preferred currency code, or '' for the page's own.
 	 * @return array See extract().
 	 */
-	private static function choose( array $candidates, $match ) {
+	private static function choose( array $candidates, $match, $currency = '' ) {
 		$best               = self::blank();
 		$best['source']     = 'json-ld';
 		$best['candidates'] = count( $candidates );
 
 		$pool = array();
 		if ( '' !== trim( (string) $match ) ) {
+			// An exact SKU / GTIN / MPN wins over words: "ABC" must not pick "ABC-XL" because it is cheaper.
 			foreach ( $candidates as $c ) {
-				if ( self::matches( $c, $match ) ) {
+				if ( self::matches_identifier( $c, $match ) ) {
 					$pool[] = $c;
+				}
+			}
+			if ( ! $pool ) {
+				foreach ( $candidates as $c ) {
+					if ( self::matches( $c, $match ) ) {
+						$pool[] = $c;
+					}
 				}
 			}
 			$best['matched'] = ! empty( $pool );
@@ -450,6 +469,8 @@ class RPW_Extractor {
 				}
 			}
 		}
+
+		$pool = self::one_currency( $pool, $currency );
 
 		foreach ( $pool as $c ) {
 			$better = null === $best['price']
@@ -467,6 +488,59 @@ class RPW_Extractor {
 	}
 
 	/**
+	 * Keep only offers in one currency, so prices are never compared as bare numbers
+	 * across currencies (90 GBP is not cheaper than 100 USD).
+	 *
+	 * The preferred currency is used when some offers are in it; otherwise the currency
+	 * of the first offer that has one. Offers without a currency stay in the pool.
+	 *
+	 * @param array  $pool      Offers.
+	 * @param string $preferred Preferred currency code, or ''.
+	 * @return array
+	 */
+	private static function one_currency( array $pool, $preferred = '' ) {
+		$codes = array();
+		foreach ( $pool as $c ) {
+			if ( null !== $c['currency'] ) {
+				$codes[ $c['currency'] ] = true;
+			}
+		}
+		if ( count( $codes ) < 2 ) {
+			return $pool;
+		}
+		$preferred = strtoupper( trim( (string) $preferred ) );
+		$keep      = isset( $codes[ $preferred ] ) ? $preferred : (string) array_key_first( $codes );
+		return array_values(
+			array_filter(
+				$pool,
+				static function ( $c ) use ( $keep ) {
+					return null === $c['currency'] || $keep === $c['currency'];
+				}
+			)
+		);
+	}
+
+	/**
+	 * Does the hint equal the offer's SKU, GTIN or MPN exactly (ignoring case)?
+	 *
+	 * @param array  $c     Offer.
+	 * @param string $match Hint.
+	 * @return bool
+	 */
+	public static function matches_identifier( array $c, $match ) {
+		$needle = self::fold( $match );
+		if ( '' === $needle ) {
+			return false;
+		}
+		foreach ( array( 'sku', 'gtin', 'mpn' ) as $k ) {
+			if ( '' !== $c[ $k ] && self::fold( $c[ $k ] ) === $needle ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Does an offer fit the variant hint?
 	 *
 	 * True when the hint equals the SKU, GTIN or MPN, or when every word of the
@@ -481,10 +555,8 @@ class RPW_Extractor {
 		if ( '' === $needle ) {
 			return true;
 		}
-		foreach ( array( 'sku', 'gtin', 'mpn' ) as $k ) {
-			if ( '' !== $c[ $k ] && self::fold( $c[ $k ] ) === $needle ) {
-				return true;
-			}
+		if ( self::matches_identifier( $c, $match ) ) {
+			return true;
 		}
 		$hay = self::fold( implode( ' ', array( $c['name'], $c['color'], $c['size'], $c['sku'], $c['gtin'], $c['mpn'], rawurldecode( $c['url'] ) ) ) );
 		foreach ( preg_split( '/\s+/u', $needle ) as $word ) {
