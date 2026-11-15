@@ -11,7 +11,7 @@ global $wpdb;
 
 foreach ( array( 'rpw_prices', 'rpw_jobs' ) as $rpw_name ) {
 	$rpw_table = $wpdb->prefix . $rpw_name;
-	$wpdb->query( "DROP TABLE IF EXISTS {$rpw_table}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $rpw_table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.SchemaChange
 }
 
 $rpw_options = array(

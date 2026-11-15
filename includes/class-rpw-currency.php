@@ -5,7 +5,7 @@
  * @package RivalPriceWatch
  */
 
-defined( 'ABSPATH' ) || defined( 'RPW_TESTING' ) || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Currency list, code detection and conversion to the shop currency.

@@ -6,6 +6,9 @@
  */
 
 define( 'RPW_TESTING', true );
+if ( ! defined( 'ABSPATH' ) ) {
+	define( 'ABSPATH', __DIR__ . '/' ); // Only so the class files load; no WordPress is needed.
+}
 // Minimal stand-in for the WordPress translation function used in name().
 if ( ! function_exists( '__' ) ) {
 	/**

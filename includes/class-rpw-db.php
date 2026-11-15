@@ -95,7 +95,7 @@ class RPW_DB {
 				$new = self::hash( $link['url'] );
 				if ( $old !== $new ) {
 					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-					$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET link_hash = %s WHERE product_id = %d AND link_hash = %s AND url = %s", $new, (int) $meta->post_id, $old, esc_url_raw( $link['url'] ) ) );
+					$wpdb->query( $wpdb->prepare( "UPDATE %i SET link_hash = %s WHERE product_id = %d AND link_hash = %s AND url = %s", $table, $new, (int) $meta->post_id, $old, esc_url_raw( $link['url'] ) ) );
 				}
 			}
 		}
@@ -212,7 +212,7 @@ class RPW_DB {
 		}
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT p.* FROM {$table} p INNER JOIN ( SELECT link_hash, MAX(id) AS max_id FROM {$table} WHERE product_id = %d GROUP BY link_hash ) l ON p.id = l.max_id", $product_id ) );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT p.* FROM %i p INNER JOIN ( SELECT link_hash, MAX(id) AS max_id FROM %i WHERE product_id = %d GROUP BY link_hash ) l ON p.id = l.max_id", $table, $table, $product_id ) );
 		$out  = array();
 		foreach ( (array) $rows as $r ) {
 			$out[ $r->link_hash ] = $r;
@@ -231,7 +231,7 @@ class RPW_DB {
 		global $wpdb;
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $wpdb->get_results( "SELECT p.* FROM {$table} p INNER JOIN ( SELECT MAX(id) AS max_id FROM {$table} GROUP BY product_id, link_hash ) l ON p.id = l.max_id" );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT p.* FROM %i p INNER JOIN ( SELECT MAX(id) AS max_id FROM %i GROUP BY product_id, link_hash ) l ON p.id = l.max_id", $table, $table ) );
 		$out  = array();
 		foreach ( (array) $rows as $r ) {
 			$out[ (int) $r->product_id ][ $r->link_hash ] = $r;
@@ -261,7 +261,7 @@ class RPW_DB {
 		global $wpdb;
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (array) $wpdb->get_results( $wpdb->prepare( "SELECT price, in_stock, checked_at FROM {$table} WHERE product_id = %d AND link_hash = %s AND status = 'ok' AND ( currency = %s OR currency IS NULL ) ORDER BY id DESC LIMIT %d", $product_id, self::hash( $url ), RPW_Currency::shop(), $limit ) );
+		return (array) $wpdb->get_results( $wpdb->prepare( "SELECT price, in_stock, checked_at FROM %i WHERE product_id = %d AND link_hash = %s AND status = 'ok' AND ( currency = %s OR currency IS NULL ) ORDER BY id DESC LIMIT %d", $table, $product_id, self::hash( $url ), RPW_Currency::shop(), $limit ) );
 	}
 
 	/**
@@ -274,7 +274,7 @@ class RPW_DB {
 		$days  = max( 7, (int) $days );
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE checked_at < %s", gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS ) ) );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM %i WHERE checked_at < %s", $table, gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS ) ) );
 		self::flush();
 	}
 

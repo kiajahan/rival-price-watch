@@ -6,6 +6,9 @@
  */
 
 define( 'RPW_TESTING', true );
+if ( ! defined( 'ABSPATH' ) ) {
+	define( 'ABSPATH', __DIR__ . '/' ); // Only so the class files load; no WordPress is needed.
+}
 require __DIR__ . '/../includes/class-rpw-extractor.php';
 
 $failures = 0;

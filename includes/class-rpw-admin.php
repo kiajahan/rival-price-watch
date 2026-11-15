@@ -132,7 +132,7 @@ class RPW_Admin {
 		if ( ! current_user_can( 'manage_woocommerce' ) || ( $pid && ! current_user_can( 'edit_post', $pid ) ) ) {
 			wp_send_json_error( array( 'message' => __( 'You are not allowed to do this.', 'rival-price-watch' ) ), 403 );
 		}
-		$url = isset( $_POST['url'] ) ? esc_url_raw( trim( (string) wp_unslash( $_POST['url'] ) ), array( 'http', 'https' ) ) : '';
+		$url = isset( $_POST['url'] ) ? esc_url_raw( trim( (string) wp_unslash( $_POST['url'] ) ), array( 'http', 'https' ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() is the sanitizer; sanitize_text_field() would damage encoded URLs.
 		if ( '' === $url || ! wp_http_validate_url( $url ) ) {
 			wp_send_json_error( array( 'message' => __( 'This is not a link that can be checked.', 'rival-price-watch' ) ) );
 		}

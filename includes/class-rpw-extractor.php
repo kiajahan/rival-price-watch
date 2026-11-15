@@ -7,7 +7,7 @@
  * @package RivalPriceWatch
  */
 
-defined( 'ABSPATH' ) || defined( 'RPW_TESTING' ) || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Price extractor.

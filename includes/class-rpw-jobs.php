@@ -88,7 +88,7 @@ class RPW_Jobs {
 			}
 			if ( $values ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- every value is prepared above.
-				$added += (int) $wpdb->query( "INSERT IGNORE INTO {$table} (product_id, link_hash, attempts, available_at, claim) VALUES " . implode( ', ', $values ) );
+				$added += (int) $wpdb->query( $wpdb->prepare( 'INSERT IGNORE INTO %i (product_id, link_hash, attempts, available_at, claim) VALUES ', $table ) . implode( ', ', $values ) );
 			}
 		}
 		return $added;
@@ -114,7 +114,7 @@ class RPW_Jobs {
 		global $wpdb;
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %i", $table ) );
 	}
 
 	/**
@@ -126,7 +126,7 @@ class RPW_Jobs {
 		global $wpdb;
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$at = $wpdb->get_var( "SELECT MIN(available_at) FROM {$table}" );
+		$at = $wpdb->get_var( $wpdb->prepare( "SELECT MIN(available_at) FROM %i", $table ) );
 		return $at ? (int) strtotime( $at . ' UTC' ) : null;
 	}
 
@@ -138,9 +138,9 @@ class RPW_Jobs {
 		global $wpdb;
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET claim = '', claimed_at = NULL, attempts = attempts + 1, available_at = %s WHERE claim <> '' AND claimed_at < %s", self::now(), self::now( -self::STALL_SECONDS ) ) );
+		$wpdb->query( $wpdb->prepare( "UPDATE %i SET claim = '', claimed_at = NULL, attempts = attempts + 1, available_at = %s WHERE claim <> '' AND claimed_at < %s", $table, self::now(), self::now( -self::STALL_SECONDS ) ) );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE claim = '' AND attempts >= %d", self::MAX_ATTEMPTS ) );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM %i WHERE claim = '' AND attempts >= %d", $table, self::MAX_ATTEMPTS ) );
 	}
 
 	/**
@@ -155,12 +155,12 @@ class RPW_Jobs {
 		$token = md5( uniqid( (string) wp_rand(), true ) );
 		for ( $try = 0; $try < 5; $try++ ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$job = $wpdb->get_row( $wpdb->prepare( "SELECT id, product_id, link_hash, attempts FROM {$table} WHERE claim = '' AND available_at <= %s ORDER BY id ASC LIMIT 1", self::now() ) );
+			$job = $wpdb->get_row( $wpdb->prepare( "SELECT id, product_id, link_hash, attempts FROM %i WHERE claim = '' AND available_at <= %s ORDER BY id ASC LIMIT 1", $table, self::now() ) );
 			if ( ! $job ) {
 				return null;
 			}
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$got = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET claim = %s, claimed_at = %s WHERE id = %d AND claim = ''", $token, self::now(), (int) $job->id ) );
+			$got = $wpdb->query( $wpdb->prepare( "UPDATE %i SET claim = %s, claimed_at = %s WHERE id = %d AND claim = ''", $table, $token, self::now(), (int) $job->id ) );
 			if ( 1 === $got ) {
 				$job->claim = $token;
 				return $job;
