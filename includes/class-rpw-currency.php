@@ -366,7 +366,13 @@ class RPW_Currency {
 		if ( empty( $data['rates'] ) || ! is_array( $data['rates'] ) ) {
 			return new WP_Error( 'rpw_rates', __( 'The exchange-rate service returned no rates.', 'rival-price-watch' ) );
 		}
-		$per_usd = $data['rates'];
+		// Only positive numbers are rates; anything else from the service is ignored.
+		$per_usd = array();
+		foreach ( $data['rates'] as $code => $value ) {
+			if ( is_string( $code ) && is_numeric( $value ) && (float) $value > 0 ) {
+				$per_usd[ strtoupper( $code ) ] = (float) $value;
+			}
+		}
 		if ( isset( $per_usd['IRR'] ) ) {
 			$per_usd['IRT'] = $per_usd['IRR'] / 10;
 		}

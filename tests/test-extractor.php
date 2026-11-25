@@ -225,5 +225,15 @@ rpw_eq( 'IRR', RPW_Extractor::extract( $jl . '<p>2 12500000 تومان</p><p>125
 rpw_eq( null, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":["Product"],"offers":{"price":{"x":1},"priceCurrency":["USD"]}}</script>' )['price'], 'non-scalar price ignored' );
 rpw_eq( 5.0, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"WebPage","mainEntity":{"@type":"Product","offers":{"price":5}}}</script>' )['price'], 'product inside mainEntity' );
 
+// A huge or hostile page must not make a check slow (0.2.4 took over a minute for this one).
+$offers = str_repeat( '<div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><meta itemprop="price" content="10"><meta itemprop="priceCurrency" content="USD"><span itemprop="name">x</span></div>', 5000 );
+$start  = microtime( true );
+$r      = RPW_Extractor::extract( '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">P</span>' . $offers . '</div>', 'x' );
+rpw_eq( true, microtime( true ) - $start < 5, 'microdata with 5000 offers is read in a few seconds' );
+rpw_eq( 10.0, $r['price'], 'and still gives the price' );
+$long = RPW_Extractor::extract( '<div itemscope itemtype="https://schema.org/Offer"><span itemprop="name">' . str_repeat( 'ب', 1000 ) . '</span><meta itemprop="price" content="3"></div>' );
+rpw_eq( 300, (int) preg_match_all( '/./su', $long['name'] ), 'a very long name is cut to 300 characters' );
+rpw_eq( true, (bool) preg_match( '//u', $long['name'] ), 'without breaking a Persian character' );
+
 echo "\n{$count} checks, {$failures} failed\n";
 exit( $failures ? 1 : 0 );

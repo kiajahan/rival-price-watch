@@ -180,46 +180,78 @@ class RPW_Extractor {
 		}
 
 		// 3. Microdata. Every value is read from the price's own Offer or an item that
-		// contains it, never from another offer on the page.
+		// contains it, never from another offer on the page. The page is read in one
+		// pass (each property is filed under the item it belongs to), so a page with
+		// thousands of offers cannot make a check slow.
+		$wanted = array_fill_keys( array( 'priceCurrency', 'availability', 'name', 'sku', 'gtin', 'gtin14', 'gtin13', 'gtin12', 'gtin8', 'isbn', 'mpn', 'color', 'size' ), true );
+		$props  = array(); // Item key => property => first non-empty value.
+		$seen   = 0;
+		foreach ( $xpath->query( '//*[@itemprop]' ) as $node ) {
+			if ( ++$seen > self::MAX_MICRODATA_PROPS ) {
+				break;
+			}
+			$prop = trim( $node->getAttribute( 'itemprop' ) );
+			if ( ! isset( $wanted[ $prop ] ) ) {
+				continue;
+			}
+			$key = self::item_key( self::owner_item( $node ) );
+			if ( isset( $props[ $key ][ $prop ] ) ) {
+				continue;
+			}
+			$v = self::prop_value( $node );
+			if ( '' !== $v ) {
+				$props[ $key ][ $prop ] = $v;
+			}
+		}
+
 		$candidates = array();
 		$roots      = array();
 		foreach ( $xpath->query( '//*[@itemprop="price"]' ) as $el ) {
+			if ( count( $candidates ) >= self::MAX_OFFERS ) {
+				break;
+			}
 			$price = $el->hasAttribute( 'content' ) ? self::normalize_number( $el->getAttribute( 'content' ), true ) : self::normalize_number( $el->textContent );
 			if ( null === $price || $price <= 0 ) {
 				continue;
 			}
-			$scopes = array();
-			foreach ( $xpath->query( 'ancestor::*[@itemscope]', $el ) as $s ) {
-				array_unshift( $scopes, $s ); // Nearest first.
+			// Items around the price, nearest first; with none, the page itself.
+			$keys = array();
+			for ( $item = self::owner_item( $el ); $item; $item = self::owner_item( $item ) ) {
+				$keys[] = self::item_key( $item );
 			}
+			$root = $keys ? end( $keys ) : '';
+			if ( ! $keys ) {
+				$keys[] = self::item_key( null );
+			}
+			$pick = static function ( array $names ) use ( $props, $keys ) {
+				foreach ( $names as $n ) {
+					foreach ( $keys as $k ) {
+						if ( isset( $props[ $k ][ $n ] ) ) {
+							return $props[ $k ][ $n ];
+						}
+					}
+				}
+				return '';
+			};
 			$c        = self::no_identity();
-			$currency = self::scoped_prop( $xpath, $scopes, array( 'priceCurrency' ) );
-			$avail    = self::scoped_prop( $xpath, $scopes, array( 'availability' ) );
+			$currency = $pick( array( 'priceCurrency' ) );
+			$avail    = $pick( array( 'availability' ) );
 			$names    = array();
-			foreach ( array_reverse( $scopes ) as $s ) {
-				$n = self::scoped_prop( $xpath, array( $s ), array( 'name' ) );
-				if ( '' !== $n && ! in_array( $n, $names, true ) ) {
-					$names[] = $n;
+			foreach ( array_reverse( $keys ) as $k ) {
+				if ( isset( $props[ $k ]['name'] ) && ! in_array( $props[ $k ]['name'], $names, true ) ) {
+					$names[] = $props[ $k ]['name'];
 				}
 			}
 			$c['name']  = implode( ' ', $names );
-			$c['sku']   = self::scoped_prop( $xpath, $scopes, array( 'sku' ) );
-			$c['gtin']  = self::scoped_prop( $xpath, $scopes, array( 'gtin', 'gtin14', 'gtin13', 'gtin12', 'gtin8', 'isbn' ) );
-			$c['mpn']   = self::scoped_prop( $xpath, $scopes, array( 'mpn' ) );
-			$c['color'] = self::scoped_prop( $xpath, $scopes, array( 'color' ) );
-			$c['size']  = self::scoped_prop( $xpath, $scopes, array( 'size' ) );
+			$c['sku']   = $pick( array( 'sku' ) );
+			$c['gtin']  = $pick( array( 'gtin', 'gtin14', 'gtin13', 'gtin12', 'gtin8', 'isbn' ) );
+			$c['mpn']   = $pick( array( 'mpn' ) );
+			$c['color'] = $pick( array( 'color' ) );
+			$c['size']  = $pick( array( 'size' ) );
 
 			// Offers inside the same top-level item belong to one product.
-			$root  = $scopes ? end( $scopes ) : null;
-			$group = count( $roots );
-			foreach ( $roots as $i => $r ) {
-				if ( $root && $r && $r->isSameNode( $root ) ) {
-					$group = $i;
-					break;
-				}
-			}
-			if ( count( $roots ) === $group ) {
-				$roots[] = $root;
+			if ( '' !== $root && ! isset( $roots[ $root ] ) ) {
+				$roots[ $root ] = count( $roots );
 			}
 
 			$candidates[] = array_merge(
@@ -228,7 +260,7 @@ class RPW_Extractor {
 					'price'    => $price,
 					'currency' => '' !== $currency ? strtoupper( $currency ) : null,
 					'in_stock' => '' !== $avail ? self::availability_in_stock( $avail ) : null,
-					'group'    => $group,
+					'group'    => '' === $root ? -1 - count( $candidates ) : $roots[ $root ], // A price outside every item is its own product.
 				)
 			);
 		}
@@ -253,6 +285,39 @@ class RPW_Extractor {
 	}
 
 	/**
+	 * At most this many priced offers are read from microdata, and at most this many
+	 * microdata properties are looked at. Real product pages stay far below both;
+	 * the limits keep a huge or hostile page from making a check slow.
+	 */
+	const MAX_OFFERS          = 500;
+	const MAX_MICRODATA_PROPS = 20000;
+
+	/**
+	 * The item (element with itemscope) a node belongs to: its nearest ancestor item.
+	 *
+	 * @param DOMNode $node Node.
+	 * @return DOMElement|null Null when the node is outside every item.
+	 */
+	private static function owner_item( $node ) {
+		for ( $p = $node->parentNode; $p instanceof DOMElement; $p = $p->parentNode ) {
+			if ( $p->hasAttribute( 'itemscope' ) ) {
+				return $p;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * A key that identifies an item element ('' for the page outside every item).
+	 *
+	 * @param DOMElement|null $item Item.
+	 * @return string
+	 */
+	private static function item_key( $item ) {
+		return $item ? (string) $item->getNodePath() : '';
+	}
+
+	/**
 	 * An offer with no identifying details.
 	 *
 	 * @return array<string, string>
@@ -270,44 +335,21 @@ class RPW_Extractor {
 	}
 
 	/**
-	 * The first value of a microdata property that belongs directly to one of the given
-	 * items (nearest first), so a value of a neighbouring offer is never used.
-	 * With no items, only properties outside every item count.
+	 * Trimmed text, at most 300 characters (never cut inside a UTF-8 character).
 	 *
-	 * @param DOMXPath          $xpath  XPath.
-	 * @param array<DOMElement> $scopes Items around the price, nearest first.
-	 * @param string[]          $props  Property names, in order of preference.
+	 * @param string $s Text.
 	 * @return string
 	 */
-	private static function scoped_prop( DOMXPath $xpath, array $scopes, array $props ) {
-		foreach ( $props as $prop ) {
-			$q = sprintf( '*[@itemprop="%s"]', $prop );
-			if ( ! $scopes ) {
-				foreach ( $xpath->query( '//' . $q . '[not(ancestor::*[@itemscope])]' ) as $node ) {
-					$v = self::prop_value( $node );
-					if ( '' !== $v ) {
-						return $v;
-					}
-				}
-				continue;
-			}
-			foreach ( $scopes as $scope ) {
-				foreach ( $xpath->query( './/' . $q, $scope ) as $node ) {
-					$owner = $xpath->query( 'ancestor::*[@itemscope][1]', $node )->item( 0 );
-					if ( $owner && $owner->isSameNode( $scope ) ) {
-						$v = self::prop_value( $node );
-						if ( '' !== $v ) {
-							return $v;
-						}
-					}
-				}
-			}
+	private static function cut( $s ) {
+		$s = trim( (string) $s );
+		if ( strlen( $s ) <= 300 ) {
+			return $s;
 		}
-		return '';
+		return trim( function_exists( 'mb_substr' ) ? mb_substr( $s, 0, 300, 'UTF-8' ) : (string) preg_replace( '/^(.{0,300}).*$/su', '$1', $s ) );
 	}
 
 	/**
-	 * Value of a microdata property element.
+	 * Value of a microdata property element (text values are cut to 300 characters).
 	 *
 	 * @param DOMElement $node Element.
 	 * @return string
@@ -315,10 +357,10 @@ class RPW_Extractor {
 	private static function prop_value( $node ) {
 		foreach ( array( 'content', 'href' ) as $attr ) {
 			if ( $node->hasAttribute( $attr ) ) {
-				return trim( $node->getAttribute( $attr ) );
+				return self::cut( $node->getAttribute( $attr ) );
 			}
 		}
-		return trim( $node->textContent );
+		return self::cut( $node->textContent );
 	}
 
 	/**

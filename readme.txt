@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.4
+Stable tag: 0.2.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,10 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.5 =
+* Security: a competitor page with thousands of microdata offers could make a check take minutes (introduced in 0.2.4). Microdata is now read in one pass, at most 500 offers are read, and text values are cut to 300 characters; a 7 MB page with 40,000 offers is read in about a second.
+* Fixed: broken data from the exchange-rate service no longer stops the "Fill in today's official rates" button with an error; only positive numbers are used.
 
 = 0.2.4 =
 * Fixed: on pages with microdata, an offer's currency and stock are read only from that offer or the product that contains it, never from another offer on the page.
