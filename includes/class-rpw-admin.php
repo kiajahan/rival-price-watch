@@ -20,6 +20,7 @@ class RPW_Admin {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
+		add_filter( 'option_page_capability_rpw_settings_group', array( __CLASS__, 'settings_capability' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
 		add_action( 'admin_post_rpw_check_product', array( __CLASS__, 'handle_check_product' ) );
 		add_action( 'admin_post_rpw_run_all', array( __CLASS__, 'handle_run_all' ) );
@@ -53,6 +54,15 @@ class RPW_Admin {
 	public static function action_links( $links ) {
 		array_unshift( $links, '<a href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE ) ) . '">' . esc_html__( 'Open', 'rival-price-watch' ) . '</a>' );
 		return $links;
+	}
+
+	/**
+	 * Who may save the settings form: the same people who may open it.
+	 *
+	 * @return string Capability.
+	 */
+	public static function settings_capability() {
+		return 'manage_woocommerce';
 	}
 
 	/**
@@ -540,8 +550,8 @@ class RPW_Admin {
 			$last = $r['last'];
 			if ( ! $last ) {
 				echo '<span class="rpw-muted">' . esc_html__( 'not checked yet', 'rival-price-watch' ) . '</span>';
-			} elseif ( 'ok' === $last->status ) {
-				echo wp_kses_post( wc_price( (float) $last->price ) );
+			} elseif ( null !== RPW_Checker::current_price( $last ) ) {
+				echo wp_kses_post( wc_price( RPW_Checker::current_price( $last ) ) );
 				$original = self::original_price( $last );
 				if ( $original ) {
 					echo ' <span class="rpw-muted">(' . esc_html( $original ) . ')</span>';
@@ -549,7 +559,7 @@ class RPW_Admin {
 				if ( '0' === (string) $last->in_stock ) {
 					echo ' <span class="rpw-muted">(' . esc_html__( 'out of stock', 'rival-price-watch' ) . ')</span>';
 				}
-			} elseif ( 'norate' === $last->status ) {
+			} elseif ( in_array( $last->status, array( 'ok', 'norate' ), true ) ) {
 				echo esc_html( (string) self::original_price( $last ) ) . ' <a class="rpw-error" title="' . esc_attr( $last->message ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&tab=settings#rpw-rates' ) ) . '">' . esc_html__( 'needs an exchange rate', 'rival-price-watch' ) . '</a>';
 			} else {
 				echo '<span class="rpw-error" title="' . esc_attr( $last->message ) . '">' . esc_html( self::status_label( $last->status ) ) . '</span>';
@@ -574,6 +584,12 @@ class RPW_Admin {
 		}
 		if ( 'nocurrency' === $status ) {
 			return __( 'currency unknown', 'rival-price-watch' );
+		}
+		if ( 'unverified' === $status ) {
+			return __( 'variant not confirmed', 'rival-price-watch' );
+		}
+		if ( 'changed' === $status ) {
+			return __( 'settings changed, waiting for a new check', 'rival-price-watch' );
 		}
 		return __( 'error', 'rival-price-watch' );
 	}

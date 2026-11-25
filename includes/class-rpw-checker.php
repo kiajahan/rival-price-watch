@@ -373,6 +373,22 @@ class RPW_Checker {
 		// Currency: the one chosen for this link, else what the page says. Nothing is assumed.
 		$from = '' !== $link['currency'] ? $link['currency'] : RPW_Currency::normalize( $found['currency'] );
 		$raw  = round( (float) $found['price'] * (float) $link['factor'], 4 );
+
+		// With a variant hint, only a price that was shown to belong to that variant is compared.
+		if ( '' !== trim( $match ) && true !== ( $found['matched'] ?? null ) ) {
+			$row['status']    = 'unverified';
+			$row['raw_price'] = $raw;
+			if ( $from ) {
+				$row['raw_currency'] = $from;
+			}
+			$row['in_stock'] = $found['in_stock'];
+			$row['message']  = sprintf(
+				/* translators: %s: the variant text the shop owner typed. */
+				__( 'A price was found, but the page does not show that it belongs to "%s", so it is not compared. Clear the variant text if this page only sells one version.', 'rival-price-watch' ),
+				$match
+			);
+			return compact( 'row', 'found' );
+		}
 		if ( ! $from ) {
 			// Strict: a price whose currency is unknown is never compared or used for alerts.
 			$row['status']    = 'nocurrency';
@@ -458,7 +474,6 @@ class RPW_Checker {
 		$rows    = array();
 		$lowest  = null;
 		$checked = null;
-		$shop    = RPW_Currency::shop();
 
 		foreach ( $links as $link ) {
 			$hash   = RPW_DB::hash( $link['url'] );
@@ -469,8 +484,8 @@ class RPW_Checker {
 			);
 			if ( $last ) {
 				$checked = ( null === $checked || $last->checked_at > $checked ) ? $last->checked_at : $checked;
-				if ( 'ok' === $last->status && null !== $last->price && '0' !== (string) $last->in_stock && ( empty( $last->currency ) || strtoupper( $last->currency ) === $shop ) ) {
-					$p = (float) $last->price;
+				$p = self::current_price( $last );
+				if ( null !== $p && '0' !== (string) $last->in_stock ) {
 					if ( null === $lowest || $p < $lowest['price'] ) {
 						$lowest = array(
 							'price' => $p,
@@ -497,6 +512,30 @@ class RPW_Checker {
 			'gap'     => $gap,
 			'checked' => $checked,
 		);
+	}
+
+	/**
+	 * A result's price in the shop currency, converted with today's exchange rates.
+	 *
+	 * The rival's own price and currency are kept with every result, so changing or
+	 * adding a rate is used at once, the same way the markets and alerts use it.
+	 * Results saved without them (older versions) fall back to the stored amount.
+	 *
+	 * @param object|null $last Result row.
+	 * @return float|null Null when the result has no comparable price or no rate is known.
+	 */
+	public static function current_price( $last ) {
+		if ( ! $last || ! in_array( $last->status, array( 'ok', 'norate' ), true ) ) {
+			return null;
+		}
+		if ( null !== $last->raw_price && ! empty( $last->raw_currency ) ) {
+			$p = RPW_Currency::to_shop( (float) $last->raw_price, strtoupper( $last->raw_currency ) );
+		} elseif ( 'ok' === $last->status && null !== $last->price && ( empty( $last->currency ) || strtoupper( $last->currency ) === RPW_Currency::shop() ) ) {
+			$p = (float) $last->price;
+		} else {
+			$p = null;
+		}
+		return null !== $p && $p > 0 ? round( (float) $p, 4 ) : null;
 	}
 
 	/**

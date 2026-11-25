@@ -111,5 +111,13 @@ foreach ( $fmt as $f ) {
 	rpw_eq( $f[0], RPW_Currency::parse_rate( RPW_Currency::format_rate( $f[0] ) ), 'round trip ' . $f[1] );
 }
 
+// 0.2.4: a bare "$" or "¥" does not say which currency it is.
+rpw_eq( null, RPW_Currency::normalize( '$' ), 'bare $ is unknown' );
+rpw_eq( null, RPW_Currency::normalize( '¥' ), 'bare yen/yuan sign is unknown' );
+rpw_eq( 'USD', RPW_Currency::normalize( 'US$' ), 'US$ is USD' );
+rpw_eq( 'CAD', RPW_Currency::normalize( 'CA$' ), 'CA$ is CAD' );
+rpw_eq( 'AUD', RPW_Currency::normalize( 'A$' ), 'A$ is AUD' );
+rpw_eq( 'USD', RPW_Currency::normalize( 'usd' ), 'currency code still read' );
+
 echo "\n{$count} checks, {$failures} failed\n";
 exit( $failures ? 1 : 0 );

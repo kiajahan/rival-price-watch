@@ -506,6 +506,92 @@ try {
 	rpw_eq( 'ok', $last->status ?? null, 'after choosing the link currency the price is compared' );
 	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'and the cheaper rival is emailed' );
 
+	// ------------------- 6e. 0.2.4: variant proof, changed links, rates.
+	echo "\n# A variant hint must be proven; changed links; today's rates\n";
+	$p9                        = rpw_product( 100, array( $base . 'uv' ) );
+	$created[]                 = $p9;
+	$h9                        = RPW_DB::hash( $base . 'uv' );
+	$links9                    = RPW_Settings::links( $p9 );
+	$links9[0]['match']        = '256GB';
+	update_post_meta( $p9, '_rpw_links', $links9 );
+	$rpw_pages[ $base . 'uv' ] = '<html><head><meta property="product:price:amount" content="50"><meta property="product:price:currency" content="' . $shop . '"></head></html>';
+	$mails_before              = count( $rpw_mails );
+	RPW_Checker::check_product( $p9 );
+	$last = RPW_DB::latest_for_product( $p9 )[ $h9 ] ?? null;
+	rpw_eq( 'unverified', $last->status ?? null, 'a price that cannot be tied to the variant is "variant not confirmed"' );
+	rpw_eq( 50.0, (float) ( $last->raw_price ?? 0 ), 'the number found is kept for information' );
+	rpw_eq( null, RPW_Checker::summary( $p9 )['lowest'], 'it is not used as the cheapest rival' );
+	rpw_eq( $mails_before, count( $rpw_mails ), 'and no alert is sent for it' );
+	$rpw_pages[ $base . 'uv' ] = '<html><head><meta property="product:price:amount" content="50"><meta property="product:price:currency" content="' . $shop . '"><meta property="og:title" content="Phone 128GB"></head></html>';
+	RPW_Checker::check_product( $p9 );
+	$last = RPW_DB::latest_for_product( $p9 )[ $h9 ] ?? null;
+	rpw_eq( 'nomatch', $last->status ?? null, 'a page title naming another variant: "variant not found"' );
+	$rpw_pages[ $base . 'uv' ] = '<html><head><meta property="product:price:amount" content="50"><meta property="product:price:currency" content="' . $shop . '"><meta property="og:title" content="Phone 256GB"></head></html>';
+	RPW_Checker::check_product( $p9 );
+	$last = RPW_DB::latest_for_product( $p9 )[ $h9 ] ?? null;
+	rpw_eq( 'ok', $last->status ?? null, 'a page title naming the variant: compared' );
+	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'and the cheaper rival is emailed' );
+
+	// The shop owner changes how the link is read: the old price must not stay current.
+	// (The save form validates URLs by DNS, which the fake test domain cannot pass, so
+	// the step that runs after the links are saved is called directly.)
+	$old9 = array();
+	foreach ( RPW_Settings::links( $p9 ) as $l ) {
+		$old9[ RPW_DB::hash( $l['url'] ) ] = $l;
+	}
+	$new9              = RPW_Settings::links( $p9 );
+	$new9[0]['factor'] = 2;
+	update_post_meta( $p9, '_rpw_links', $new9 );
+	RPW_Jobs::clear( $p9 );
+	rpw_eq( 1, RPW_Metabox::links_changed( $p9, $old9, $new9 ), 'one link changed' );
+	$last = RPW_DB::latest_for_product( $p9 )[ $h9 ] ?? null;
+	rpw_eq( 'changed', $last->status ?? null, 'after changing the multiplier the old price is marked as read the old way' );
+	rpw_eq( null, RPW_Checker::summary( $p9 )['lowest'], 'and it is no longer the cheapest rival' );
+	rpw_eq( false, is_array( get_post_meta( $p9, '_rpw_pending', true ) ), 'and no alert waits for it' );
+	rpw_eq( 1, rpw_jobs_of( $p9 ), 'the link is queued for a new check' );
+	rpw_eq( 'ok', RPW_DB::history( $p9, $base . 'uv' ) ? 'ok' : 'gone', 'its price history is kept' );
+	RPW_Checker::check_product( $p9 );
+	$last = RPW_DB::latest_for_product( $p9 )[ $h9 ] ?? null;
+	rpw_eq( 100.0, (float) ( $last->raw_price ?? 0 ), 'the next check uses the new multiplier' );
+	rpw_eq( 0, rpw_jobs_of( $p9 ), 'and the queued job is done' );
+	$renamed             = $new9;
+	$renamed[0]['label'] = 'renamed';
+	$keyed               = array( $h9 => $new9[0] );
+	rpw_eq( 0, RPW_Metabox::links_changed( $p9, $keyed, $renamed ), 'renaming a link is not a change in how it is read' );
+	rpw_eq( 'ok', RPW_DB::latest_for_product( $p9 )[ $h9 ]->status ?? null, 'so its price is kept' );
+	$curr                = $new9;
+	$curr[0]['currency'] = 'EUR' === $shop ? 'GBP' : 'EUR';
+	rpw_eq( true, RPW_Metabox::reading_changed( $new9[0], $curr[0] ), 'changing the link currency is a change' );
+	$hint                = $new9;
+	$hint[0]['match']    = '512GB';
+	rpw_eq( true, RPW_Metabox::reading_changed( $new9[0], $hint[0] ), 'changing the variant is a change' );
+
+	// Changing an exchange rate: the overview and the markets agree.
+	$foreign = 'EUR' === $shop ? 'GBP' : 'EUR';
+	$rates   = array(
+		'base'  => $shop,
+		'rates' => array( $foreign => 1.0 ),
+	);
+	$rate_filter = static function () use ( &$rates ) {
+		return $rates;
+	};
+	add_filter( 'pre_option_' . RPW_Currency::OPTION, $rate_filter );
+	$p10                       = rpw_product( 100, array( $base . 'fx' ) );
+	$created[]                 = $p10;
+	$rpw_pages[ $base . 'fx' ] = rpw_page( 80, $foreign );
+	RPW_Checker::check_product( $p10 );
+	rpw_eq( 80.0, (float) RPW_Checker::summary( $p10 )['lowest']['price'], 'rival converted at the first rate' );
+	$rates['rates'][ $foreign ] = 2.0;
+	$sum                        = RPW_Checker::summary( $p10 );
+	$mkt                        = RPW_Checker::markets( $p10 )[ $foreign ];
+	rpw_eq( 160.0, (float) $sum['lowest']['price'], 'after the rate changes the overview uses the new rate' );
+	rpw_eq( round( (float) $mkt['diff'], 2 ), round( (float) $sum['diff'], 2 ), 'overview and market give the same difference' );
+	unset( $rates['rates'][ $foreign ] );
+	rpw_eq( null, RPW_Checker::summary( $p10 )['lowest'], 'with the rate removed it is not compared' );
+	remove_filter( 'pre_option_' . RPW_Currency::OPTION, $rate_filter );
+
+	rpw_eq( 'manage_woocommerce', apply_filters( 'option_page_capability_rpw_settings_group', 'manage_options' ), 'shop managers who can open the settings can also save them' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

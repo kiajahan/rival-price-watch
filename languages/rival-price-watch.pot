@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Rival Price Watch 0.2.3\n"
+"Project-Id-Version: Rival Price Watch 0.2.4\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -177,6 +177,12 @@ msgstr ""
 msgid "currency unknown"
 msgstr ""
 
+msgid "variant not confirmed"
+msgstr ""
+
+msgid "settings changed, waiting for a new check"
+msgstr ""
+
 msgid "error"
 msgstr ""
 
@@ -262,6 +268,10 @@ msgid "None of the %2$d offers on the page matches \"%1$s\". Check the variant t
 msgstr ""
 
 msgid "No price found on the page. The site does not publish price data that can be read automatically."
+msgstr ""
+
+#, php-format
+msgid "A price was found, but the page does not show that it belongs to \"%s\", so it is not compared. Clear the variant text if this page only sells one version."
 msgstr ""
 
 #, php-format
@@ -490,6 +500,9 @@ msgid "(empty: converted from your shop price)"
 msgstr ""
 
 msgid "(set a price or an exchange rate to compare)"
+msgstr ""
+
+msgid "The link settings were changed. The price is read again at the next check."
 msgstr ""
 
 msgid "Auto-detect"

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Rival Price Watch 0.2.3\n"
+"Project-Id-Version: Rival Price Watch 0.2.4\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -178,6 +178,12 @@ msgstr "مدل پیدا نشد"
 msgid "currency unknown"
 msgstr "واحد پول نامشخص"
 
+msgid "variant not confirmed"
+msgstr "مدل تأیید نشد"
+
+msgid "settings changed, waiting for a new check"
+msgstr "تنظیمات تغییر کرد، در انتظار بررسی دوباره"
+
 msgid "error"
 msgstr "خطا"
 
@@ -264,6 +270,10 @@ msgstr "هیچ‌کدام از %2$d پیشنهاد این صفحه با «%1$s»
 
 msgid "No price found on the page. The site does not publish price data that can be read automatically."
 msgstr "قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند."
+
+#, php-format
+msgid "A price was found, but the page does not show that it belongs to \"%s\", so it is not compared. Clear the variant text if this page only sells one version."
+msgstr "قیمتی پیدا شد، اما صفحه نشان نمی‌دهد که مربوط به «%s» است، پس مقایسه نمی‌شود. اگر این صفحه فقط یک مدل می‌فروشد، خانه «مدل» را خالی کنید."
 
 #, php-format
 msgid "The page shows the price %s but does not say which currency it is in. Choose the currency for this link to compare it."
@@ -492,6 +502,9 @@ msgstr "(خالی: از قیمت فروشگاه تبدیل شده)"
 
 msgid "(set a price or an exchange rate to compare)"
 msgstr "(برای مقایسه، قیمت یا نرخ تبدیل وارد کنید)"
+
+msgid "The link settings were changed. The price is read again at the next check."
+msgstr "تنظیمات این لینک تغییر کرد. قیمت در بررسی بعدی دوباره خوانده می‌شود."
 
 msgid "Auto-detect"
 msgstr "تشخیص خودکار"

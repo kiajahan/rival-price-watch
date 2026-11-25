@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.3
+Stable tag: 0.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,15 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.4 =
+* Fixed: on pages with microdata, an offer's currency and stock are read only from that offer or the product that contains it, never from another offer on the page.
+* Changed: when a link has a variant text, a price is compared only when the page shows it belongs to that variant. Otherwise the link shows "variant not confirmed" (the number found is kept for information). Meta-tag pages are checked against the page title, and microdata offers against their names and codes.
+* Fixed: after changing a link's multiplier, currency or variant, its old price is no longer compared or emailed. The link shows "settings changed" and is queued for a new check; its history is kept.
+* Fixed: the overview converts rival prices with today's exchange rates, so it always agrees with the per-currency markets and the alerts. A newly added rate is used at once.
+* Fixed: a toman price written without separators (12500000 تومان), with spaces or in Arabic digits is now recognised when the product data labels it as rial.
+* Changed: a bare "$" or "¥" no longer counts as US dollars or yen; choose the link currency for such pages. "US$", "CA$", "A$" and similar are still recognised.
+* Fixed: shop managers who can open the Settings page can now also save it.
 
 = 0.2.3 =
 * Changed: a price is never assumed to be in your shop currency. When a page states no currency and none is chosen for the link, the link shows "currency unknown" and is not compared or used for alerts until you choose its currency.

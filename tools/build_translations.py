@@ -225,6 +225,14 @@ FA = {
         'صفحه قیمت %s را نشان می‌دهد اما نمی‌گوید به چه واحد پولی است. برای مقایسه، واحد پول این لینک را انتخاب کنید.',
     'Only when the competitor is cheaper by at least':
         'فقط وقتی رقیب دست\u200cکم این\u200cقدر ارزان\u200cتر است:',
+    'variant not confirmed':
+        'مدل تأیید نشد',
+    'settings changed, waiting for a new check':
+        'تنظیمات تغییر کرد، در انتظار بررسی دوباره',
+    'A price was found, but the page does not show that it belongs to "%s", so it is not compared. Clear the variant text if this page only sells one version.':
+        'قیمتی پیدا شد، اما صفحه نشان نمی\u200cدهد که مربوط به «%s» است، پس مقایسه نمی\u200cشود. اگر این صفحه فقط یک مدل می\u200cفروشد، خانه «مدل» را خالی کنید.',
+    'The link settings were changed. The price is read again at the next check.':
+        'تنظیمات این لینک تغییر کرد. قیمت در بررسی بعدی دوباره خوانده می\u200cشود.',
 }
 FA_PLURAL = {
     ('%d more is being checked in the background; refresh in a minute.', '%d more are being checked in the background; refresh in a minute.'):
@@ -270,7 +278,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.2.3\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.4\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

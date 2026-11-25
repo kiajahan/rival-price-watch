@@ -146,12 +146,22 @@ class RPW_Currency {
 		if ( '' === $s ) {
 			return null;
 		}
+		// "$" (USD, CAD, AUD, ...) and "¥" (JPY, CNY) alone do not say which currency it is.
 		$map = array(
-			'$'      => 'USD',
 			'US$'    => 'USD',
+			'CA$'    => 'CAD',
+			'C$'     => 'CAD',
+			'A$'     => 'AUD',
+			'AU$'    => 'AUD',
+			'NZ$'    => 'NZD',
+			'HK$'    => 'HKD',
+			'S$'     => 'SGD',
+			'R$'     => 'BRL',
+			'MX$'    => 'MXN',
+			'JP¥'    => 'JPY',
+			'CN¥'    => 'CNY',
 			'€'      => 'EUR',
 			'£'      => 'GBP',
-			'¥'      => 'JPY',
 			'₹'      => 'INR',
 			'₺'      => 'TRY',
 			'₽'      => 'RUB',

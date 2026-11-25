@@ -179,6 +179,48 @@ $r = RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Produ
 rpw_eq( 80.0, $r['price'], 'when no offer states a currency, all are compared' );
 rpw_eq( null, $r['currency'], 'and the currency is reported as unknown' );
 
+// --- 0.2.4: values of one microdata offer are never taken from another offer. ---
+$two = '<div itemscope itemtype="https://schema.org/Offer"><meta itemprop="price" content="10"></div><div itemscope itemtype="https://schema.org/Offer"><meta itemprop="price" content="100"><meta itemprop="priceCurrency" content="GBP"><link itemprop="availability" href="https://schema.org/OutOfStock"></div>';
+$r   = RPW_Extractor::extract( $two );
+rpw_eq( 10.0, $r['price'], 'microdata: first offer read' );
+rpw_eq( null, $r['currency'], 'microdata: currency of another offer is not borrowed' );
+rpw_eq( null, $r['in_stock'], 'microdata: stock of another offer is not borrowed' );
+$shared = '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Kettle</span><meta itemprop="priceCurrency" content="EUR"><div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><meta itemprop="price" content="30"></div></div>';
+$r      = RPW_Extractor::extract( $shared );
+rpw_eq( 'EUR', $r['currency'], 'microdata: currency of the product that contains the offer is used' );
+rpw_eq( 'Kettle', $r['name'], 'microdata: product name read' );
+$loose = '<span itemprop="price" content="25"></span><span itemprop="priceCurrency" content="USD"></span>';
+rpw_eq( 'USD', RPW_Extractor::extract( $loose )['currency'], 'microdata without items: loose currency still read' );
+$variants = '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">Phone</span>'
+	. '<div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><span itemprop="name">128GB</span><meta itemprop="price" content="500"><meta itemprop="priceCurrency" content="USD"></div>'
+	. '<div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><span itemprop="name">256GB</span><meta itemprop="price" content="600"><meta itemprop="priceCurrency" content="USD"></div></div>';
+$r = RPW_Extractor::extract( $variants, '256GB' );
+rpw_eq( 600.0, $r['price'], 'microdata: variant hint picks the matching offer' );
+rpw_eq( true, $r['matched'], 'microdata: hint verified' );
+$r = RPW_Extractor::extract( $variants, '512GB' );
+rpw_eq( null, $r['price'], 'microdata: hint that matches no offer gives no price' );
+rpw_eq( false, $r['matched'], 'microdata: hint not matched' );
+$r = RPW_Extractor::extract( '<div itemscope itemtype="https://schema.org/Offer"><meta itemprop="price" content="7"></div>', '256GB' );
+rpw_eq( 7.0, $r['price'], 'microdata with nothing to match against: price kept' );
+rpw_eq( null, $r['matched'], 'microdata with nothing to match against: not verified' );
+
+// --- 0.2.4: meta tags are checked against the page title. ---
+$r = RPW_Extractor::extract( '<meta property="og:price:amount" content="50"><meta property="og:title" content="Phone 128GB">', '256GB' );
+rpw_eq( null, $r['price'], 'meta: title naming another variant gives no price' );
+rpw_eq( false, $r['matched'], 'meta: hint not matched' );
+$r = RPW_Extractor::extract( '<meta property="og:price:amount" content="50"><meta property="og:title" content="Phone 256 GB">', 'phone 256' );
+rpw_eq( 50.0, $r['price'], 'meta: title naming the variant gives the price' );
+rpw_eq( true, $r['matched'], 'meta: hint matched' );
+
+// --- 0.2.4: toman written without separators, with spaces or with Arabic digits. ---
+$jl = '<script type="application/ld+json">{"@type":"Product","offers":{"price":12500000,"priceCurrency":"IRR"}}</script>';
+rpw_eq( 'IRT', RPW_Extractor::extract( $jl . '<p>12500000 تومان</p>' )['currency'], 'ungrouped toman amount' );
+rpw_eq( 'IRT', RPW_Extractor::extract( $jl . '<p>۱۲۵۰۰۰۰۰ تومان</p>' )['currency'], 'ungrouped Persian toman amount' );
+rpw_eq( 'IRT', RPW_Extractor::extract( $jl . '<p>12 500 000 تومان</p>' )['currency'], 'space-grouped toman amount' );
+rpw_eq( 'IRT', RPW_Extractor::extract( $jl . '<p>١٢٬٥٠٠٬٠٠٠ تومان</p>' )['currency'], 'Arabic-digit toman amount' );
+rpw_eq( 'IRR', RPW_Extractor::extract( $jl . '<p>125000000 تومان</p>' )['currency'], 'a different number does not count' );
+rpw_eq( 'IRR', RPW_Extractor::extract( $jl . '<p>2 12500000 تومان</p><p>12500000 ریال</p>' )['currency'], 'numbers next to each other are not joined' );
+
 // Odd data must not break the reader.
 rpw_eq( null, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":["Product"],"offers":{"price":{"x":1},"priceCurrency":["USD"]}}</script>' )['price'], 'non-scalar price ignored' );
 rpw_eq( 5.0, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"WebPage","mainEntity":{"@type":"Product","offers":{"price":5}}}</script>' )['price'], 'product inside mainEntity' );

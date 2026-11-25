@@ -57,10 +57,7 @@ class RPW_Extractor {
 		if ( $price <= 0 || floor( $price ) !== (float) $price ) {
 			return null;
 		}
-		$latin   = number_format( $price, 0, '.', ',' );
-		$persian = strtr( $latin, array( ',' => '٬', '0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴', '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹' ) );
-		$persian_comma = str_replace( '٬', ',', $persian );
-		$numbers = array_unique( array( $latin, $persian, $persian_comma ) );
+		$want = number_format( $price, 0, '.', '' );
 
 		// Visible text only: drop scripts, styles and tags (class names often contain digits).
 		$text = preg_replace( '#<(script|style|noscript|template)\b[^>]*>.*?</\1>#is', ' ', $html );
@@ -69,16 +66,20 @@ class RPW_Extractor {
 
 		$toman = 0;
 		$rial  = 0;
-		foreach ( $numbers as $num ) {
-			// The number, then a few characters with no other digits, then the unit word.
-			$re = '/(?<![\d۰-۹])' . preg_quote( $num, '/' ) . '(?![\d۰-۹])[^\d۰-۹]{0,40}?(تومان|ریال)/u';
-			if ( preg_match_all( $re, (string) $text, $m ) ) {
-				foreach ( $m[1] as $unit ) {
-					if ( 'تومان' === $unit ) {
-						++$toman;
-					} else {
-						++$rial;
-					}
+		// Any whole number (grouped with , ٬ . or spaces, or not grouped; Latin, Persian or Arabic
+		// digits), then a few characters with no other digits, then the unit word.
+		$d  = '[0-9۰-۹٠-٩]';
+		$re = '/(?<![0-9۰-۹٠-٩])(' . $d . '{1,3}(?:[,٬.\x{066C}\s\x{00A0}\x{202F}]' . $d . '{3})+|' . $d . '+)(?![0-9۰-۹٠-٩])[^0-9۰-۹٠-٩]{0,40}?(تومان|ریال)/u';
+		if ( preg_match_all( $re, (string) $text, $m, PREG_SET_ORDER ) ) {
+			foreach ( $m as $hit ) {
+				$digits = preg_replace( '/[^0-9]/', '', self::fold( $hit[1] ) );
+				if ( ltrim( $digits, '0' ) !== $want ) {
+					continue;
+				}
+				if ( 'تومان' === $hit[2] ) {
+					++$toman;
+				} else {
+					++$rial;
 				}
 			}
 		}
@@ -161,48 +162,163 @@ class RPW_Extractor {
 				if ( $title->length ) {
 					$result['name'] = trim( $title->item( 0 )->value );
 				}
+				// A variant hint can only be checked against the page title here.
+				if ( '' !== trim( $match ) ) {
+					if ( '' === $result['name'] ) {
+						$result['matched'] = null;
+					} else {
+						$result['matched'] = self::matches( array_merge( self::no_identity(), array( 'name' => $result['name'] ) ), $match );
+						if ( ! $result['matched'] ) {
+							$result['price']    = null;
+							$result['currency'] = null;
+							$result['in_stock'] = null;
+						}
+					}
+				}
 				return $result;
 			}
 		}
 
-		// 3. Microdata. Currency and availability are read from the same Offer when the page marks one.
-		$prices = $xpath->query( '//*[@itemprop="price"]' );
-		foreach ( $prices as $el ) {
+		// 3. Microdata. Every value is read from the price's own Offer or an item that
+		// contains it, never from another offer on the page.
+		$candidates = array();
+		$roots      = array();
+		foreach ( $xpath->query( '//*[@itemprop="price"]' ) as $el ) {
 			$price = $el->hasAttribute( 'content' ) ? self::normalize_number( $el->getAttribute( 'content' ), true ) : self::normalize_number( $el->textContent );
 			if ( null === $price || $price <= 0 ) {
 				continue;
 			}
-			$result['price']      = $price;
-			$result['source']     = 'microdata';
-			$result['candidates'] = $prices->length;
-			$scope                = $xpath->query( 'ancestor::*[@itemscope][1]', $el );
-			$scope                = $scope->length ? $scope->item( 0 ) : null;
+			$scopes = array();
+			foreach ( $xpath->query( 'ancestor::*[@itemscope]', $el ) as $s ) {
+				array_unshift( $scopes, $s ); // Nearest first.
+			}
+			$c        = self::no_identity();
+			$currency = self::scoped_prop( $xpath, $scopes, array( 'priceCurrency' ) );
+			$avail    = self::scoped_prop( $xpath, $scopes, array( 'availability' ) );
+			$names    = array();
+			foreach ( array_reverse( $scopes ) as $s ) {
+				$n = self::scoped_prop( $xpath, array( $s ), array( 'name' ) );
+				if ( '' !== $n && ! in_array( $n, $names, true ) ) {
+					$names[] = $n;
+				}
+			}
+			$c['name']  = implode( ' ', $names );
+			$c['sku']   = self::scoped_prop( $xpath, $scopes, array( 'sku' ) );
+			$c['gtin']  = self::scoped_prop( $xpath, $scopes, array( 'gtin', 'gtin14', 'gtin13', 'gtin12', 'gtin8', 'isbn' ) );
+			$c['mpn']   = self::scoped_prop( $xpath, $scopes, array( 'mpn' ) );
+			$c['color'] = self::scoped_prop( $xpath, $scopes, array( 'color' ) );
+			$c['size']  = self::scoped_prop( $xpath, $scopes, array( 'size' ) );
 
-			$cur = $scope ? $xpath->query( './/*[@itemprop="priceCurrency"]', $scope ) : null;
-			if ( ! $cur || ! $cur->length ) {
-				$cur = $xpath->query( '//*[@itemprop="priceCurrency"]' );
+			// Offers inside the same top-level item belong to one product.
+			$root  = $scopes ? end( $scopes ) : null;
+			$group = count( $roots );
+			foreach ( $roots as $i => $r ) {
+				if ( $root && $r && $r->isSameNode( $root ) ) {
+					$group = $i;
+					break;
+				}
 			}
-			if ( $cur->length ) {
-				$c                  = $cur->item( 0 );
-				$result['currency'] = strtoupper( trim( $c->hasAttribute( 'content' ) ? $c->getAttribute( 'content' ) : $c->textContent ) );
+			if ( count( $roots ) === $group ) {
+				$roots[] = $root;
 			}
-			$avail = $scope ? $xpath->query( './/*[@itemprop="availability"]', $scope ) : null;
-			if ( ! $avail || ! $avail->length ) {
-				$avail = $xpath->query( '//*[@itemprop="availability"]' );
+
+			$candidates[] = array_merge(
+				$c,
+				array(
+					'price'    => $price,
+					'currency' => '' !== $currency ? strtoupper( $currency ) : null,
+					'in_stock' => '' !== $avail ? self::availability_in_stock( $avail ) : null,
+					'group'    => $group,
+				)
+			);
+		}
+		if ( $candidates ) {
+			$identified = false;
+			foreach ( $candidates as $c ) {
+				if ( '' !== $c['name'] . $c['sku'] . $c['gtin'] . $c['mpn'] . $c['color'] . $c['size'] ) {
+					$identified = true;
+					break;
+				}
 			}
-			if ( $avail->length ) {
-				$a                  = $avail->item( 0 );
-				$result['in_stock'] = self::availability_in_stock( $a->hasAttribute( 'href' ) ? $a->getAttribute( 'href' ) : ( $a->hasAttribute( 'content' ) ? $a->getAttribute( 'content' ) : $a->textContent ) );
+			if ( '' !== trim( $match ) && ! $identified ) {
+				// Nothing on the page describes the offers: the hint cannot be checked.
+				$result            = self::choose( $candidates, '', $currency, 'microdata' );
+				$result['matched'] = null;
+				return $result;
 			}
-			$name = $xpath->query( '//*[@itemprop="name"]' );
-			if ( $name->length ) {
-				$n              = $name->item( 0 );
-				$result['name'] = trim( $n->hasAttribute( 'content' ) ? $n->getAttribute( 'content' ) : $n->textContent );
-			}
-			return $result;
+			return self::choose( $candidates, $match, $currency, 'microdata' );
 		}
 
 		return $result;
+	}
+
+	/**
+	 * An offer with no identifying details.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function no_identity() {
+		return array(
+			'name'  => '',
+			'sku'   => '',
+			'gtin'  => '',
+			'mpn'   => '',
+			'color' => '',
+			'size'  => '',
+			'url'   => '',
+		);
+	}
+
+	/**
+	 * The first value of a microdata property that belongs directly to one of the given
+	 * items (nearest first), so a value of a neighbouring offer is never used.
+	 * With no items, only properties outside every item count.
+	 *
+	 * @param DOMXPath          $xpath  XPath.
+	 * @param array<DOMElement> $scopes Items around the price, nearest first.
+	 * @param string[]          $props  Property names, in order of preference.
+	 * @return string
+	 */
+	private static function scoped_prop( DOMXPath $xpath, array $scopes, array $props ) {
+		foreach ( $props as $prop ) {
+			$q = sprintf( '*[@itemprop="%s"]', $prop );
+			if ( ! $scopes ) {
+				foreach ( $xpath->query( '//' . $q . '[not(ancestor::*[@itemscope])]' ) as $node ) {
+					$v = self::prop_value( $node );
+					if ( '' !== $v ) {
+						return $v;
+					}
+				}
+				continue;
+			}
+			foreach ( $scopes as $scope ) {
+				foreach ( $xpath->query( './/' . $q, $scope ) as $node ) {
+					$owner = $xpath->query( 'ancestor::*[@itemscope][1]', $node )->item( 0 );
+					if ( $owner && $owner->isSameNode( $scope ) ) {
+						$v = self::prop_value( $node );
+						if ( '' !== $v ) {
+							return $v;
+						}
+					}
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Value of a microdata property element.
+	 *
+	 * @param DOMElement $node Element.
+	 * @return string
+	 */
+	private static function prop_value( $node ) {
+		foreach ( array( 'content', 'href' ) as $attr ) {
+			if ( $node->hasAttribute( $attr ) ) {
+				return trim( $node->getAttribute( $attr ) );
+			}
+		}
+		return trim( $node->textContent );
 	}
 
 	/**
@@ -439,11 +555,12 @@ class RPW_Extractor {
 	 * @param array  $candidates Offers from jsonld_candidates().
 	 * @param string $match      Variant hint.
 	 * @param string $currency   Preferred currency code, or '' for the page's own.
+	 * @param string $source     Where the offers were read from.
 	 * @return array See extract().
 	 */
-	private static function choose( array $candidates, $match, $currency = '' ) {
+	private static function choose( array $candidates, $match, $currency = '', $source = 'json-ld' ) {
 		$best               = self::blank();
-		$best['source']     = 'json-ld';
+		$best['source']     = $source;
 		$best['candidates'] = count( $candidates );
 
 		$pool = array();

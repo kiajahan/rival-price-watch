@@ -152,6 +152,53 @@ class RPW_Metabox {
 	}
 
 	/**
+	 * After saving: a link whose multiplier, currency or variant changed had its last price
+	 * read the old way. Record that (history is kept), so it is no longer compared or
+	 * emailed, and queue the link to be checked again.
+	 *
+	 * @param int   $post_id   Product ID.
+	 * @param array $old_links Links before saving, keyed by link hash.
+	 * @param array $links     Links now saved.
+	 * @return int Number of links marked as changed.
+	 */
+	public static function links_changed( $post_id, array $old_links, array $links ) {
+		$changed = 0;
+		foreach ( $links as $link ) {
+			$hash = RPW_DB::hash( $link['url'] );
+			if ( isset( $old_links[ $hash ] ) && self::reading_changed( $old_links[ $hash ], $link ) ) {
+				RPW_DB::add(
+					$post_id,
+					$link['url'],
+					array(
+						'status'  => 'changed',
+						'message' => __( 'The link settings were changed. The price is read again at the next check.', 'rival-price-watch' ),
+					)
+				);
+				RPW_Jobs::enqueue( $post_id, $hash );
+				++$changed;
+			}
+		}
+		if ( $changed ) {
+			RPW_Checker::collect_alert( $post_id );
+			RPW_Checker::ensure_scheduled();
+		}
+		return $changed;
+	}
+
+	/**
+	 * Did a link's settings change in a way that changes how its price is read?
+	 *
+	 * @param array $old Saved link.
+	 * @param array $new Link being saved.
+	 * @return bool
+	 */
+	public static function reading_changed( array $old, array $new ) {
+		return abs( (float) $old['factor'] - (float) $new['factor'] ) > 1e-9
+			|| (string) $old['currency'] !== (string) $new['currency']
+			|| trim( (string) $old['match'] ) !== trim( (string) $new['match'] );
+	}
+
+	/**
 	 * Empty link.
 	 *
 	 * @return array
@@ -290,12 +337,11 @@ class RPW_Metabox {
 		$curs    = isset( $_POST['rpw_currency'] ) ? (array) wp_unslash( $_POST['rpw_currency'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$valid   = RPW_Currency::codes();
 
-		$old_hashes = array_map(
-			static function ( $l ) {
-				return RPW_DB::hash( $l['url'] );
-			},
-			RPW_Settings::links( $post_id )
-		);
+		$old_links = array();
+		foreach ( RPW_Settings::links( $post_id ) as $l ) {
+			$old_links[ RPW_DB::hash( $l['url'] ) ] = $l;
+		}
+		$old_hashes = array_keys( $old_links );
 
 		$links = array();
 		$seen  = array();
@@ -345,6 +391,7 @@ class RPW_Metabox {
 
 		if ( $links ) {
 			update_post_meta( $post_id, '_rpw_links', $links );
+			self::links_changed( $post_id, $old_links, $links );
 		} else {
 			delete_post_meta( $post_id, '_rpw_links' );
 			delete_post_meta( $post_id, '_rpw_alerted' );
