@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.5
+Stable tag: 0.2.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,7 +45,7 @@ Most online shops publish their product data in a standard format (schema.org) s
 
 **Polite by design**
 
-Checks identify themselves with a clear user agent, wait between requests (3 seconds by default), and never try to get around blocks or CAPTCHAs. If a site blocks automatic visits, the product shows "error" for that link with the reason. Only monitor sites whose terms allow it.
+Checks identify themselves with a clear user agent (the name of the plugin only; your site's address is not sent), wait between requests (3 seconds by default), and never try to get around blocks or CAPTCHAs. If a site blocks automatic visits, the product shows "error" for that link with the reason. Only monitor sites whose terms allow it.
 
 **For developers**
 
@@ -112,6 +112,9 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.6 =
+* Privacy: checks no longer send your site's address to competitor sites. The user agent names only the plugin and its version.
 
 = 0.2.5 =
 * Security: a competitor page with thousands of microdata offers could make a check take minutes (introduced in 0.2.4). Microdata is now read in one pass, at most 500 offers are read, and text values are cut to 300 characters; a 7 MB page with 40,000 offers is read in about a second.

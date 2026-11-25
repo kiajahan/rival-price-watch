@@ -592,6 +592,21 @@ try {
 
 	rpw_eq( 'manage_woocommerce', apply_filters( 'option_page_capability_rpw_settings_group', 'manage_options' ), 'shop managers who can open the settings can also save them' );
 
+	// ---------------------- 6f. what a competitor site sees in the request.
+	echo "\n# Privacy: the shop's address is not sent\n";
+	$rpw_ua   = '';
+	$ua_catch = static function ( $pre, $args, $url ) use ( &$rpw_ua ) {
+		if ( false !== strpos( $url, 'rpw-test.invalid' ) ) {
+			$rpw_ua = isset( $args['user-agent'] ) ? (string) $args['user-agent'] : '';
+		}
+		return $pre;
+	};
+	add_filter( 'pre_http_request', $ua_catch, 1, 3 );
+	RPW_Checker::check_product( $p10 );
+	remove_filter( 'pre_http_request', $ua_catch, 1 );
+	rpw_eq( true, false !== strpos( $rpw_ua, 'RivalPriceWatch/' . RPW_VERSION ), 'the request says it is Rival Price Watch' );
+	rpw_eq( false, false !== stripos( $rpw_ua, $rpw_host ) || false !== stripos( $rpw_ua, home_url() ), 'the request does not contain the shop address' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

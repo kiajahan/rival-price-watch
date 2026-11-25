@@ -298,7 +298,8 @@ class RPW_Checker {
 			'timeout'             => 15,
 			'redirection'         => 3,
 			'limit_response_size' => 10 * MB_IN_BYTES,
-			'user-agent'          => sprintf( 'Mozilla/5.0 (compatible; RivalPriceWatch/%s; +%s)', RPW_VERSION, home_url( '/' ) ),
+			// Says what is visiting, but not whose shop: the address of your site is never sent.
+			'user-agent'          => sprintf( 'Mozilla/5.0 (compatible; RivalPriceWatch/%s)', RPW_VERSION ),
 			'headers'             => array(
 				'Accept'          => 'text/html,application/xhtml+xml',
 				'Accept-Language' => get_locale() ? str_replace( '_', '-', get_locale() ) . ',en;q=0.8' : 'en',
