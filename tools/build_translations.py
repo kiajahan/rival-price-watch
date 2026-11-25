@@ -278,7 +278,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.2.6\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.7\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

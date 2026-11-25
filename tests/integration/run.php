@@ -190,7 +190,7 @@ foreach ( RPW_Checker::watched_products() as $other ) {
 	$rpw_saved[ $other ] = array( get_post_meta( $other, '_rpw_alerted', true ), get_post_meta( $other, '_rpw_pending', true ) );
 	delete_post_meta( $other, '_rpw_pending' );
 }
-$rpw_saved_options = array( get_option( 'rpw_alert_retries', null ), get_option( 'rpw_alert_error', null ), get_option( 'rpw_last_run_finished', null ) );
+$rpw_saved_options = array( get_option( 'rpw_alert_retries', null ), get_option( 'rpw_alert_error', null ), get_option( 'rpw_last_run_finished', null ), get_option( 'rpw_last_run_started', null ) );
 wp_clear_scheduled_hook( RPW_Checker::HOOK_CONTINUE );
 wp_clear_scheduled_hook( RPW_Checker::HOOK_ALERTS );
 delete_option( 'rpw_alert_retries' );
@@ -607,6 +607,60 @@ try {
 	rpw_eq( true, false !== strpos( $rpw_ua, 'RivalPriceWatch/' . RPW_VERSION ), 'the request says it is Rival Price Watch' );
 	rpw_eq( false, false !== stripos( $rpw_ua, $rpw_host ) || false !== stripos( $rpw_ua, home_url() ), 'the request does not contain the shop address' );
 
+	// ------------------------------------------- 6g. 0.2.7 fixes.
+	echo "\n# Runs, repeated alerts, cleanup and the lock\n";
+	// A waiting retry is not a run: the scheduled run still queues every link.
+	update_option( 'rpw_last_run_started', time() - 3600, false );
+	update_option( 'rpw_last_run_finished', time() - 1800, false );
+	RPW_Jobs::enqueue( $p10, RPW_DB::hash( $base . 'fx' ), 300 );
+	rpw_eq( false, RPW_Checker::run_in_progress(), 'one waiting retry after a finished run is not a run in progress' );
+	update_option( 'rpw_last_run_started', time() - 60, false );
+	rpw_eq( true, RPW_Checker::run_in_progress(), 'a started, unfinished run with work left is in progress' );
+	update_option( 'rpw_last_run_started', time() - 2 * DAY_IN_SECONDS, false );
+	update_option( 'rpw_last_run_finished', time() - 3 * DAY_IN_SECONDS, false );
+	rpw_eq( false, RPW_Checker::run_in_progress(), 'a run that never finished stops counting after a day' );
+	RPW_Jobs::clear( $p10 );
+
+	// Choosing the currency the page already states does not email the same alert again.
+	$p11                       = rpw_product( 100, array( $base . 'dup' ) );
+	$created[]                 = $p11;
+	$rpw_mail_ok               = true;
+	$rpw_pages[ $base . 'dup' ] = rpw_page( 60, $shop );
+	$mails_before              = count( $rpw_mails );
+	RPW_Checker::check_product( $p11 );
+	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'cheaper rival emailed once' );
+	$old11                = RPW_Settings::links( $p11 );
+	$new11                = $old11;
+	$new11[0]['currency'] = $shop;
+	update_post_meta( $p11, '_rpw_links', $new11 );
+	RPW_Metabox::links_changed( $p11, array( RPW_DB::hash( $base . 'dup' ) => $old11[0] ), $new11 );
+	rpw_eq( true, is_array( get_post_meta( $p11, '_rpw_alerted', true ) ) && get_post_meta( $p11, '_rpw_alerted', true ), 'while the link waits for its new check, the emailed record is kept' );
+	RPW_Checker::check_product( $p11 );
+	rpw_eq( $mails_before + 1, count( $rpw_mails ), 'the unchanged price is not emailed again' );
+	$rpw_pages[ $base . 'dup' ] = rpw_page( 50, $shop );
+	RPW_Checker::check_product( $p11 );
+	rpw_eq( $mails_before + 2, count( $rpw_mails ), 'a new lower price is still emailed' );
+
+	// Cleanup keeps the latest result of every link, however old.
+	$prices_tbl = RPW_DB::table();
+	$wpdb->query( $wpdb->prepare( 'UPDATE ' . $prices_tbl . ' SET checked_at = %s WHERE product_id = %d', gmdate( 'Y-m-d H:i:s', time() - 400 * DAY_IN_SECONDS ), $p11 ) ); // phpcs:ignore
+	RPW_DB::prune( 30 );
+	$left = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . $prices_tbl . ' WHERE product_id = %d', $p11 ) ); // phpcs:ignore
+	rpw_eq( 1, $left, 'old history is removed but the latest result stays' );
+	rpw_eq( 'ok', RPW_DB::latest_for_product( $p11 )[ RPW_DB::hash( $base . 'dup' ) ]->status ?? null, 'so the link still shows its last price' );
+
+	// "Check now" while a background batch holds the lock: nothing is fetched, all is queued.
+	$held   = RPW_Jobs::lock( RPW_Checker::LOCK, 60 );
+	$before = count( $rpw_requests );
+	$done   = RPW_Checker::check_product( $p11 );
+	rpw_eq( 0, count( $rpw_requests ) - $before, 'no request while a batch is fetching' );
+	rpw_eq( 1, $done['queued'], 'the link is queued instead' );
+	RPW_Jobs::unlock( RPW_Checker::LOCK, $held );
+	RPW_Jobs::clear( $p11 );
+	$done = RPW_Checker::check_product( $p11 );
+	rpw_eq( 1, $done['checked'], 'with the lock free, Check now fetches again' );
+	rpw_eq( false, (bool) get_option( RPW_Checker::LOCK ), 'and gives the lock back' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();
@@ -667,7 +721,7 @@ try {
 			}
 		}
 	}
-	foreach ( array( 'rpw_alert_retries', 'rpw_alert_error', 'rpw_last_run_finished' ) as $n => $name ) {
+	foreach ( array( 'rpw_alert_retries', 'rpw_alert_error', 'rpw_last_run_finished', 'rpw_last_run_started' ) as $n => $name ) {
 		if ( null === $rpw_saved_options[ $n ] ) {
 			delete_option( $name );
 		} else {

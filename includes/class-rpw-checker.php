@@ -108,11 +108,13 @@ class RPW_Checker {
 	 * Start a full run: queue every link of every watched product.
 	 */
 	public static function start_run() {
-		if ( RPW_Jobs::count() > 0 ) {
-			// A run is already going; just keep it moving.
+		if ( self::run_in_progress() ) {
+			// A full run is still going; just keep it moving.
 			self::process_queue();
 			return;
 		}
+		// Jobs that are already waiting (a retry after "Check now", a link whose settings
+		// changed) stay as they are; every other link is added.
 		$jobs = array();
 		foreach ( self::watched_products() as $pid ) {
 			foreach ( RPW_Settings::links( $pid ) as $link ) {
@@ -122,6 +124,20 @@ class RPW_Checker {
 		RPW_Jobs::enqueue_many( $jobs );
 		update_option( 'rpw_last_run_started', time(), false );
 		self::process_queue();
+	}
+
+	/**
+	 * Is a full run still working through its queue?
+	 *
+	 * Only a run that was started and has not finished counts, and only for a day:
+	 * a few jobs left waiting by "Check now" or by edited links are not a run.
+	 *
+	 * @return bool
+	 */
+	public static function run_in_progress() {
+		$started  = (int) get_option( 'rpw_last_run_started', 0 );
+		$finished = (int) get_option( 'rpw_last_run_finished', 0 );
+		return RPW_Jobs::count() > 0 && $started > $finished && time() - $started < DAY_IN_SECONDS;
 	}
 
 	/**
@@ -249,11 +265,14 @@ class RPW_Checker {
 			$args['timeout'] = min( 8, (int) $args['timeout'] );
 			return $args;
 		};
+		// The same lock as the background batches: competitor sites never get two requests
+		// from this shop at once. While a batch holds it, every link goes to the queue instead.
+		$lock = RPW_Jobs::lock( self::LOCK, 60 );
 		add_filter( 'rpw_request_args', $short, 99 );
 		foreach ( $links as $link ) {
 			$hash = RPW_DB::hash( $link['url'] );
 			// Stop starting new requests after ~12 seconds so the page never hits a 30 s PHP limit.
-			if ( $checked >= self::NOW_LIMIT || ( $checked > 0 && time() - $started > 12 ) ) {
+			if ( ! $lock || $checked >= self::NOW_LIMIT || ( $checked > 0 && time() - $started > 12 ) ) {
 				RPW_Jobs::enqueue( $product_id, $hash );
 				++$queued;
 				continue;
@@ -272,6 +291,9 @@ class RPW_Checker {
 			++$checked;
 		}
 		remove_filter( 'rpw_request_args', $short, 99 );
+		if ( $lock ) {
+			RPW_Jobs::unlock( self::LOCK, $lock );
+		}
 
 		if ( $checked ) {
 			self::collect_alert( $product_id );
@@ -697,6 +719,21 @@ class RPW_Checker {
 	const ALERT_GRACE = 604800; // 7 days.
 
 	/**
+	 * Is a link of this market waiting to be read again after its settings changed?
+	 *
+	 * @param array $m Market from markets_from().
+	 * @return bool
+	 */
+	private static function awaiting_check( array $m ) {
+		foreach ( $m['rows'] as $r ) {
+			if ( $r['last'] && 'changed' === $r['last']->status ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Markets for alert decisions.
 	 *
 	 * A fetch that failed (timeout, HTTP error) says nothing about the rival's price,
@@ -751,7 +788,13 @@ class RPW_Checker {
 			$cheaper = $m['lowest'] && $m['own'] > 0 && $m['lowest']['price'] < $m['own']
 				&& ( $m['own'] - $m['lowest']['price'] ) / $m['own'] * 100 >= $min;
 			if ( ! $cheaper ) {
-				unset( $alerted[ $cur ], $pending[ $cur ] );
+				unset( $pending[ $cur ] );
+				// While a link waits to be read again after its settings changed, nothing is known
+				// about this market yet: keep the record of what was emailed, so the same
+				// situation is not emailed again when the new check finds it unchanged.
+				if ( ! self::awaiting_check( $m ) ) {
+					unset( $alerted[ $cur ] );
+				}
 				continue;
 			}
 			$key = md5( $m['lowest']['url'] . '|' . $m['lowest']['price'] . '|' . $m['own'] );

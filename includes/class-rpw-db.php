@@ -293,7 +293,9 @@ class RPW_DB {
 		$days  = max( 7, (int) $days );
 		$table = self::table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "DELETE FROM %i WHERE checked_at < %s", $table, gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS ) ) );
+		// The latest result of every link is always kept, however old, so a link that was not
+		// checked for a while still shows its last known price instead of "not checked yet".
+		$wpdb->query( $wpdb->prepare( "DELETE FROM %i WHERE checked_at < %s AND id NOT IN ( SELECT keep_id FROM ( SELECT MAX(id) AS keep_id FROM %i GROUP BY product_id, link_hash ) AS latest_rows )", $table, gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS ), $table ) );
 		self::flush();
 	}
 

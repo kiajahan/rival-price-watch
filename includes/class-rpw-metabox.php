@@ -163,15 +163,19 @@ class RPW_Metabox {
 	 */
 	public static function links_changed( $post_id, array $old_links, array $links ) {
 		$changed = 0;
+		$latest  = RPW_DB::latest_for_product( $post_id );
 		foreach ( $links as $link ) {
 			$hash = RPW_DB::hash( $link['url'] );
 			if ( isset( $old_links[ $hash ] ) && self::reading_changed( $old_links[ $hash ], $link ) ) {
+				// Keep the link in the same market (currency) until it is read again.
+				$cur = '' !== $link['currency'] ? $link['currency'] : ( ! empty( $latest[ $hash ]->raw_currency ) ? (string) $latest[ $hash ]->raw_currency : '' );
 				RPW_DB::add(
 					$post_id,
 					$link['url'],
 					array(
-						'status'  => 'changed',
-						'message' => __( 'The link settings were changed. The price is read again at the next check.', 'rival-price-watch' ),
+						'status'       => 'changed',
+						'raw_currency' => '' !== $cur ? $cur : null,
+						'message'      => __( 'The link settings were changed. The price is read again at the next check.', 'rival-price-watch' ),
 					)
 				);
 				RPW_Jobs::enqueue( $post_id, $hash );

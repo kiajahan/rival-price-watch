@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.6
+Stable tag: 0.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,12 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.7 =
+* Fixed: when one link was waiting for a retry (for example after "Check now" hit a timeout), the scheduled run checked nothing else that day. The scheduled run now always queues every link unless a full run is really still in progress.
+* Fixed: after changing a link's settings, the same alert could be emailed again when the new check found the same price. The record of what was emailed is kept while the link waits for its new check.
+* Fixed: cleaning up old history no longer removes a link's latest result, so links that were not checked for a while still show their last known price.
+* Changed: "Check now" no longer fetches pages while a background batch is fetching; the links are queued instead, so a competitor never gets two requests from your shop at once.
 
 = 0.2.6 =
 * Privacy: checks no longer send your site's address to competitor sites. The user agent names only the plugin and its version.
