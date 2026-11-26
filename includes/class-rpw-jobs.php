@@ -108,6 +108,46 @@ class RPW_Jobs {
 	}
 
 	/**
+	 * Queue a fresh check of a link whose settings changed, even if a worker holds its job.
+	 *
+	 * The old job is replaced by a new row (new id), so a worker that is still checking the
+	 * link with the old settings can no longer remove or finish it: complete() and retry()
+	 * only touch the row id they claimed.
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $hash       Link hash.
+	 */
+	public static function requeue( $product_id, $hash ) {
+		self::clear( $product_id, $hash );
+		self::enqueue( $product_id, $hash );
+	}
+
+	/**
+	 * Ids of the jobs waiting for one link.
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $hash       Link hash.
+	 * @return int[]
+	 */
+	public static function ids( $product_id, $hash ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( 'SELECT id FROM %i WHERE product_id = %d AND link_hash = %s', self::table(), (int) $product_id, (string) $hash ) ) );
+	}
+
+	/**
+	 * Remove jobs by id.
+	 *
+	 * @param int[] $ids Job ids.
+	 */
+	public static function delete_ids( array $ids ) {
+		global $wpdb;
+		foreach ( $ids as $id ) {
+			$wpdb->delete( self::table(), array( 'id' => (int) $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		}
+	}
+
+	/**
 	 * How many links are waiting (including ones being checked right now).
 	 *
 	 * @return int

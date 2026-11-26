@@ -155,6 +155,7 @@ class RPW_Settings {
 				'factor'   => isset( $l['factor'] ) && (float) $l['factor'] > 0 ? (float) $l['factor'] : 1.0,
 				'currency' => isset( $l['currency'] ) ? (string) $l['currency'] : '',
 				'match'    => isset( $l['match'] ) ? (string) $l['match'] : '',
+				'mode'     => isset( $l['mode'] ) && 'id' === $l['mode'] ? 'id' : 'words',
 			);
 		}
 		return $out;

@@ -31,10 +31,12 @@ class RPW_Extractor {
 	 *                      matched; for meta tags and microdata "matched" stays null (not verified).
 	 * @param string $currency Optional currency the link is expected in. When a page lists offers in
 	 *                         several currencies, only offers in this one are compared.
+	 * @param string $mode     How the hint is matched: 'words' (every word must be a whole word in
+	 *                         the offer) or 'id' (the hint must equal the offer's SKU, GTIN or MPN).
 	 * @return array{price: float|null, currency: string|null, in_stock: bool|null, source: string, name: string, sku: string, candidates: int, matched: bool|null}
 	 */
-	public static function extract( $html, $match = '', $currency = '' ) {
-		$result = self::extract_structured( $html, (string) $match, (string) $currency );
+	public static function extract( $html, $match = '', $currency = '', $mode = 'words' ) {
+		$result = self::extract_structured( $html, (string) $match, (string) $currency, 'id' === $mode ? 'id' : 'words' );
 		if ( null !== $result['price'] && in_array( $result['currency'], array( 'IRR', 'IRT', null ), true ) ) {
 			$shown = self::shown_iranian_unit( $html, $result['price'] );
 			if ( $shown && $shown !== $result['currency'] ) {
@@ -118,7 +120,7 @@ class RPW_Extractor {
 	 * @param string $currency Optional preferred currency code.
 	 * @return array See extract().
 	 */
-	private static function extract_structured( $html, $match = '', $currency = '' ) {
+	private static function extract_structured( $html, $match = '', $currency = '', $mode = 'words' ) {
 		$result = self::blank();
 		if ( ! is_string( $html ) || '' === trim( $html ) ) {
 			return $result;
@@ -127,7 +129,7 @@ class RPW_Extractor {
 		// 1. JSON-LD.
 		$candidates = self::jsonld_candidates( $html );
 		if ( $candidates ) {
-			return self::choose( $candidates, $match, $currency );
+			return self::choose( $candidates, $match, $currency, 'json-ld', $mode );
 		}
 
 		$dom = self::load_dom( $html );
@@ -164,7 +166,8 @@ class RPW_Extractor {
 				}
 				// A variant hint can only be checked against the page title here.
 				if ( '' !== trim( $match ) ) {
-					if ( '' === $result['name'] ) {
+					if ( '' === $result['name'] || 'id' === $mode ) {
+						// Meta tags carry no SKU or barcode, so an exact code cannot be confirmed here.
 						$result['matched'] = null;
 					} else {
 						$result['matched'] = self::matches( array_merge( self::no_identity(), array( 'name' => $result['name'] ) ), $match );
@@ -275,11 +278,11 @@ class RPW_Extractor {
 			}
 			if ( '' !== trim( $match ) && ! $identified ) {
 				// Nothing on the page describes the offers: the hint cannot be checked.
-				$result            = self::choose( $candidates, '', $currency, 'microdata' );
+				$result            = self::choose( $candidates, '', $currency, 'microdata', $mode );
 				$result['matched'] = null;
 				return $result;
 			}
-			return self::choose( $candidates, $match, $currency, 'microdata' );
+			return self::choose( $candidates, $match, $currency, 'microdata', $mode );
 		}
 
 		return $result;
@@ -601,7 +604,7 @@ class RPW_Extractor {
 	 * @param string $source     Where the offers were read from.
 	 * @return array See extract().
 	 */
-	private static function choose( array $candidates, $match, $currency = '', $source = 'json-ld' ) {
+	private static function choose( array $candidates, $match, $currency = '', $source = 'json-ld', $mode = 'words' ) {
 		$best               = self::blank();
 		$best['source']     = $source;
 		$best['candidates'] = count( $candidates );
@@ -614,7 +617,8 @@ class RPW_Extractor {
 					$pool[] = $c;
 				}
 			}
-			if ( ! $pool ) {
+			// In "exact code" mode nothing else counts: "ABC" never picks "ABC-XL".
+			if ( ! $pool && 'id' !== $mode ) {
 				foreach ( $candidates as $c ) {
 					if ( self::matches( $c, $match ) ) {
 						$pool[] = $c;
@@ -706,7 +710,9 @@ class RPW_Extractor {
 	 * Does an offer fit the variant hint?
 	 *
 	 * True when the hint equals the SKU, GTIN or MPN, or when every word of the
-	 * hint appears in the offer's name, colour, size, identifiers or URL.
+	 * hint appears as a whole word in the offer's name, colour, size, identifiers
+	 * or URL: "red" does not match "infrared" and "128" does not match "1280",
+	 * but "128" matches "128GB" (letters right after a number start a new word).
 	 *
 	 * @param array  $c     Offer.
 	 * @param string $match Hint.
@@ -722,11 +728,32 @@ class RPW_Extractor {
 		}
 		$hay = self::fold( implode( ' ', array( $c['name'], $c['color'], $c['size'], $c['sku'], $c['gtin'], $c['mpn'], rawurldecode( $c['url'] ) ) ) );
 		foreach ( preg_split( '/\s+/u', $needle ) as $word ) {
-			if ( '' !== $word && false === strpos( $hay, $word ) ) {
+			if ( '' !== $word && ! self::has_word( $hay, $word ) ) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Is $word in $hay as a whole word? A word must not continue into a letter (when it
+	 * starts or ends with a letter) or a digit (when it starts or ends with a digit).
+	 *
+	 * @param string $hay  Folded text.
+	 * @param string $word Folded word.
+	 * @return bool
+	 */
+	private static function has_word( $hay, $word ) {
+		$class = static function ( $ch ) {
+			if ( preg_match( '/^\p{L}$/u', $ch ) ) {
+				return '\p{L}';
+			}
+			return preg_match( '/^\p{N}$/u', $ch ) ? '\p{N}' : '';
+		};
+		$first  = $class( preg_match( '/^./us', $word, $a ) ? $a[0] : '' );
+		$last   = $class( preg_match( '/.$/us', $word, $z ) ? $z[0] : '' );
+		$re     = ( '' !== $first ? '(?<!' . $first . ')' : '' ) . preg_quote( $word, '/' ) . ( '' !== $last ? '(?!' . $last . ')' : '' );
+		return 1 === preg_match( '/' . $re . '/u', $hay );
 	}
 
 	/**

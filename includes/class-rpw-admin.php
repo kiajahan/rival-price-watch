@@ -154,6 +154,7 @@ class RPW_Admin {
 			'factor'   => $factor > 0 ? $factor : 1.0,
 			'currency' => isset( RPW_Currency::codes()[ $cur ] ) ? $cur : '',
 			'match'    => isset( $_POST['match'] ) ? substr( sanitize_text_field( wp_unslash( $_POST['match'] ) ), 0, 100 ) : '',
+			'mode'     => isset( $_POST['mode'] ) && 'id' === sanitize_key( wp_unslash( $_POST['mode'] ) ) ? 'id' : 'words',
 		);
 
 		// Shorter timeout while the admin waits.

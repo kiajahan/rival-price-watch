@@ -59,6 +59,7 @@
 		data.append( 'currency', field( row, 'rpw_currency' ) );
 		data.append( 'factor', field( row, 'rpw_factor' ) );
 		data.append( 'match', field( row, 'rpw_match' ) );
+		data.append( 'mode', field( row, 'rpw_mode' ) || 'words' );
 
 		button.disabled = true;
 		show( url, [ cfg.testing ], [], false );

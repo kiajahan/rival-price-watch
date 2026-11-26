@@ -885,6 +885,64 @@ try {
 	$last19 = RPW_DB::latest_for_product( $p19 )[ $h19 ] ?? null;
 	rpw_eq( array( 'ok', 1.5, 1 ), array( $last19->status ?? null, (float) ( $last19->price ?? 0 ), (int) ( $last19->in_stock ?? -1 ) ), 'with every value intact' );
 
+	// ------------------------------------------- 6m. 0.2.13 fixes.
+	echo "\n# Exact-code variant mode; a settings change always gets its fresh check\n";
+	$p20       = rpw_product( 100, array( $base . 'mode' ) );
+	$created[] = $p20;
+	$h20       = RPW_DB::hash( $base . 'mode' );
+	rpw_eq( 'words', RPW_Settings::links( $p20 )[0]['mode'], 'links default to matching words' );
+	$admin_ids = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+	$prev_user = get_current_user_id();
+	wp_set_current_user( (int) $admin_ids[0] );
+	RPW_Jobs::clear( $p20 );
+	$_POST = array(
+		'rpw_nonce'    => wp_create_nonce( 'rpw_save_links' ),
+		'rpw_url'      => array( $base . 'mode' ),
+		'rpw_label'    => array( '' ),
+		'rpw_factor'   => array( '1' ),
+		'rpw_match'    => array( 'ABC' ),
+		'rpw_mode'     => array( 'id' ),
+		'rpw_currency' => array( '' ),
+	);
+	RPW_Metabox::save( $p20, get_post( $p20 ) );
+	$_POST = array();
+	wp_set_current_user( $prev_user );
+	rpw_eq( array( 'ABC', 'id' ), array( RPW_Settings::links( $p20 )[0]['match'], RPW_Settings::links( $p20 )[0]['mode'] ), 'the exact-code mode is saved' );
+	rpw_eq( true, RPW_Metabox::reading_changed( array_merge( RPW_Settings::links( $p20 )[0], array( 'mode' => 'words' ) ), RPW_Settings::links( $p20 )[0] ), 'changing only the mode counts as a settings change' );
+	$rpw_pages[ $base . 'mode' ] = '<script type="application/ld+json">{"@type":"Product","name":"P","offers":{"@type":"Offer","sku":"ABC-XL","price":"90","priceCurrency":"' . $shop . '"}}</script>';
+	RPW_Jobs::clear( $p20 );
+	RPW_Checker::check_product( $p20 );
+	rpw_eq( 'nomatch', RPW_DB::latest_for_product( $p20 )[ $h20 ]->status ?? null, 'a page offering only "ABC-XL" gives "variant not found" for code ABC' );
+	rpw_eq( null, RPW_Checker::summary( $p20 )['lowest'], 'and it is not compared' );
+
+	// Background: the result is written, then the settings change, then the worker removes its job.
+	$link20 = RPW_Settings::links( $p20 )[0];
+	RPW_Jobs::clear( $p20 );
+	RPW_Jobs::enqueue( $p20, $h20 );
+	$job = RPW_Jobs::claim();
+	while ( $job && ( (int) $job->product_id !== $p20 ) ) {
+		RPW_Jobs::retry( $job, 3600 );
+		$job = RPW_Jobs::claim();
+	}
+	RPW_DB::add( $p20, $base . 'mode', array( 'status' => 'nomatch', 'message' => 'old settings' ) ); // the worker's result
+	$new20 = array_merge( $link20, array( 'match' => 'ABC-XL' ) );
+	update_post_meta( $p20, '_rpw_links', array( $new20 ) );
+	RPW_Metabox::links_changed( $p20, array( $h20 => $link20 ), array( $new20 ) ); // the save lands here
+	RPW_Jobs::complete( $job ); // the worker finishes its old job
+	rpw_eq( 1, rpw_jobs_of( $p20 ), 'background: the fresh check survives the old worker finishing' );
+	RPW_Jobs::retry( $job, 0 );
+	rpw_eq( 1, rpw_jobs_of( $p20 ), 'and the old worker cannot reschedule it either' );
+	RPW_Checker::process_queue();
+	rpw_eq( 'ok', RPW_DB::latest_for_product( $p20 )[ $h20 ]->status ?? null, 'the fresh check then runs with the new code' );
+	rpw_eq( 0, rpw_jobs_of( $p20 ), 'and the queue is empty' );
+
+	// "Check now": a job queued while the link is being checked is kept.
+	$before = RPW_Jobs::ids( $p20, $h20 );
+	RPW_Jobs::requeue( $p20, $h20 );
+	RPW_Jobs::delete_ids( $before );
+	rpw_eq( 1, rpw_jobs_of( $p20 ), 'Check now: a job queued during the check is not removed with the old ones' );
+	RPW_Jobs::clear( $p20 );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Rival Price Watch 0.2.12\n"
+"Project-Id-Version: Rival Price Watch 0.2.13\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -462,7 +462,7 @@ msgstr ""
 msgid "Name (optional)"
 msgstr ""
 
-msgid "Only needed when the competitor page lists several versions of the product. Type the SKU or barcode of the right one, or words that describe it, for example: 256GB black. Leave empty to use the first product on the page."
+msgid "Only needed when the competitor page lists several versions of the product. Type words that describe the right one, for example: 256GB black (each word must appear as a whole word), or choose Exact SKU / barcode / MPN and type its code. Leave empty to use the first product on the page."
 msgstr ""
 
 msgid "Variant (optional)"
@@ -513,6 +513,15 @@ msgid "(set a price or an exchange rate to compare)"
 msgstr ""
 
 msgid "The link settings were changed. The price is read again at the next check."
+msgstr ""
+
+msgid "Match the variant by"
+msgstr ""
+
+msgid "Words in the name"
+msgstr ""
+
+msgid "Exact SKU / barcode / MPN"
 msgstr ""
 
 msgid "Auto-detect"

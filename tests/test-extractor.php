@@ -264,5 +264,29 @@ rpw_eq( null, RPW_Extractor::normalize_number( '1e3 USD' ), 'text: "1e3" is not 
 rpw_eq( 1299.0, RPW_Extractor::normalize_number( 'Rs.1,299' ), 'text: "Rs.1,299" is still read' );
 rpw_eq( 0.99, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":{"price":".99","priceCurrency":"USD"}}</script>' )['price'], 'json-ld: ".99" gives 0.99' );
 
+// --- 0.2.13: exact-code mode and whole-word matching. ---
+$offers = '<script type="application/ld+json">{"@type":"Product","name":"Phone","offers":['
+	. '{"@type":"Offer","sku":"ABC-XL","name":"Phone XL infrared","price":"90","priceCurrency":"USD"},'
+	. '{"@type":"Offer","sku":"ABC-M","name":"Phone M 1280","price":"95","priceCurrency":"USD"}]}</script>';
+$r = RPW_Extractor::extract( $offers, 'ABC', '', 'id' );
+rpw_eq( null, $r['price'], 'id mode: "ABC" does not pick "ABC-XL"' );
+rpw_eq( false, $r['matched'], 'id mode: reported as variant not found' );
+$r = RPW_Extractor::extract( $offers, 'abc-m', '', 'id' );
+rpw_eq( 95.0, $r['price'], 'id mode: an exact code (any case) is found' );
+rpw_eq( true, $r['matched'], 'id mode: and confirmed' );
+$r = RPW_Extractor::extract( $offers, 'Phone XL', '', 'id' );
+rpw_eq( null, $r['price'], 'id mode: words in the name do not count' );
+$r = RPW_Extractor::extract( $offers, 'red' );
+rpw_eq( false, $r['matched'], 'words: "red" does not match "infrared"' );
+$r = RPW_Extractor::extract( $offers, '128' );
+rpw_eq( false, $r['matched'], 'words: "128" does not match "1280"' );
+$r = RPW_Extractor::extract( $offers, 'xl' );
+rpw_eq( 90.0, $r['price'], 'words: a whole word still matches' );
+rpw_eq( true, RPW_Extractor::matches( array( 'name' => 'Galaxy A55 128GB', 'color' => '', 'size' => '', 'sku' => '', 'gtin' => '', 'mpn' => '', 'url' => '' ), '128' ), 'words: "128" still matches "128GB"' );
+rpw_eq( true, RPW_Extractor::matches( array( 'name' => 'گوشی رنگ مشکی‌مات', 'color' => '', 'size' => '', 'sku' => '', 'gtin' => '', 'mpn' => '', 'url' => '' ), 'مشکی' ), 'words: Persian word before a zero-width non-joiner' );
+rpw_eq( false, RPW_Extractor::matches( array( 'name' => 'آبیاری', 'color' => '', 'size' => '', 'sku' => '', 'gtin' => '', 'mpn' => '', 'url' => '' ), 'آبی' ), 'words: Persian "آبی" does not match "آبیاری"' );
+$r = RPW_Extractor::extract( '<meta property="og:price:amount" content="50"><meta property="og:title" content="Phone ABC">', 'ABC', '', 'id' );
+rpw_eq( null, $r['matched'], 'id mode on meta tags: not confirmed (no codes there)' );
+
 echo "\n{$count} checks, {$failures} failed\n";
 exit( $failures ? 1 : 0 );

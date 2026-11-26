@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.12
+Stable tag: 0.2.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -93,6 +93,13 @@ The site is blocking automatic visits. Increase the pause between requests, or r
 
 WordPress runs scheduled tasks when someone visits your site. On quiet sites, add a real cron job on your server that calls wp-cron.php.
 
+= How does the Variant field match? =
+
+Under the Variant field, choose how it is matched:
+
+* **Words in the name** (default): every word you type must appear as a whole word in the offer's name, colour, size, codes or link. "red" does not match "infrared" and "128" does not match "1280", but "128" still matches "128GB".
+* **Exact SKU / barcode / MPN**: the offer's SKU, barcode (GTIN) or MPN must be exactly the code you typed (capital letters do not matter). "ABC" never matches "ABC-XL"; if no offer has that exact code, the link shows "variant not found" and is not compared.
+
 = A link says "variant not confirmed" =
 
 You filled in the **Variant** field, and a price was found, but the page does not show that it belongs to that variant. It is not compared, so a wrong version can never trigger an alert. Use the SKU or barcode of the right version, or clear the field if the page only sells one version.
@@ -128,6 +135,11 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.13 =
+* New: the Variant field has a "Match by" choice: "Words in the name" or "Exact SKU / barcode / MPN". In exact mode only an offer with exactly that code is compared, so "ABC" can never pick "ABC-XL".
+* Fixed: variant words are matched as whole words, so "red" no longer matches "infrared" and "128" no longer matches "1280" ("128" still matches "128GB").
+* Fixed: when a link's settings were changed just after a check had saved its result, the fresh check could be removed from the queue and wait for the next scheduled run. A settings change now replaces the queued check, so the worker still holding the old one cannot remove it, and "Check now" keeps checks queued while it was running.
 
 = 0.2.12 =
 * Fixed: a link set to one currency on a page that only sells in another (for example USD on a page with only a GBP offer) recorded the page's number in the link's currency (90 GBP saved as 90 USD). Such a link now shows "different currency" and is not compared. Choosing toman for a page labelled rial (or the other way round) still works.

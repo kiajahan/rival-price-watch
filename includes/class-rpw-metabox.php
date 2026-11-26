@@ -49,7 +49,7 @@ class RPW_Metabox {
 				<tr>
 					<th><?php esc_html_e( 'Competitor product link', 'rival-price-watch' ); ?></th>
 					<th><?php esc_html_e( 'Name (optional)', 'rival-price-watch' ); ?></th>
-					<th title="<?php esc_attr_e( 'Only needed when the competitor page lists several versions of the product. Type the SKU or barcode of the right one, or words that describe it, for example: 256GB black. Leave empty to use the first product on the page.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Variant (optional)', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
+					<th title="<?php esc_attr_e( 'Only needed when the competitor page lists several versions of the product. Type words that describe the right one, for example: 256GB black (each word must appear as a whole word), or choose Exact SKU / barcode / MPN and type its code. Leave empty to use the first product on the page.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Variant (optional)', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th title="<?php esc_attr_e( 'Which currency this site sells in. Auto-detect reads it from the page; if the page does not say, the link is not compared until you choose one here.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Currency', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th title="<?php esc_attr_e( 'The competitor price is multiplied by this number before comparing, for example 1.1 if the site shows prices without a 10% tax. Leave it at 1 in most cases.', 'rival-price-watch' ); ?>"><?php esc_html_e( 'Price × ', 'rival-price-watch' ); ?> <span class="dashicons dashicons-editor-help"></span></th>
 					<th></th>
@@ -179,7 +179,7 @@ class RPW_Metabox {
 						'message'      => __( 'The link settings were changed. The price is read again at the next check.', 'rival-price-watch' ),
 					)
 				);
-				RPW_Jobs::enqueue( $post_id, $hash );
+				RPW_Jobs::requeue( $post_id, $hash );
 				++$changed;
 			}
 		}
@@ -200,7 +200,8 @@ class RPW_Metabox {
 	public static function reading_changed( array $old, array $new ) {
 		return abs( (float) $old['factor'] - (float) $new['factor'] ) > 1e-9
 			|| (string) $old['currency'] !== (string) $new['currency']
-			|| trim( (string) $old['match'] ) !== trim( (string) $new['match'] );
+			|| trim( (string) $old['match'] ) !== trim( (string) $new['match'] )
+			|| ( isset( $old['mode'] ) ? $old['mode'] : 'words' ) !== ( isset( $new['mode'] ) ? $new['mode'] : 'words' );
 	}
 
 	/**
@@ -215,6 +216,7 @@ class RPW_Metabox {
 			'factor'   => 1,
 			'currency' => '',
 			'match'    => '',
+			'mode'     => 'words',
 		);
 	}
 
@@ -229,7 +231,13 @@ class RPW_Metabox {
 		<tr>
 			<td><input type="url" class="widefat" name="rpw_url[]" value="<?php echo esc_attr( $l['url'] ); ?>" placeholder="https://"></td>
 			<td><input type="text" class="widefat" name="rpw_label[]" value="<?php echo esc_attr( $l['label'] ); ?>"></td>
-			<td><input type="text" class="widefat" name="rpw_match[]" maxlength="100" value="<?php echo esc_attr( isset( $l['match'] ) ? $l['match'] : '' ); ?>"></td>
+			<td>
+				<input type="text" class="widefat" name="rpw_match[]" maxlength="100" value="<?php echo esc_attr( isset( $l['match'] ) ? $l['match'] : '' ); ?>">
+				<select name="rpw_mode[]" class="rpw-mode" aria-label="<?php esc_attr_e( 'Match the variant by', 'rival-price-watch' ); ?>">
+					<option value="words" <?php selected( isset( $l['mode'] ) ? $l['mode'] : 'words', 'words' ); ?>><?php esc_html_e( 'Words in the name', 'rival-price-watch' ); ?></option>
+					<option value="id" <?php selected( isset( $l['mode'] ) ? $l['mode'] : 'words', 'id' ); ?>><?php esc_html_e( 'Exact SKU / barcode / MPN', 'rival-price-watch' ); ?></option>
+				</select>
+			</td>
 			<td>
 				<select name="rpw_currency[]">
 					<option value=""><?php esc_html_e( 'Auto-detect', 'rival-price-watch' ); ?></option>
@@ -356,6 +364,7 @@ class RPW_Metabox {
 		$labels  = isset( $_POST['rpw_label'] ) ? (array) wp_unslash( $_POST['rpw_label'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$factors = isset( $_POST['rpw_factor'] ) ? (array) wp_unslash( $_POST['rpw_factor'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$matches = isset( $_POST['rpw_match'] ) ? (array) wp_unslash( $_POST['rpw_match'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$modes   = isset( $_POST['rpw_mode'] ) ? (array) wp_unslash( $_POST['rpw_mode'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- compared with a fixed value below.
 		$curs    = isset( $_POST['rpw_currency'] ) ? (array) wp_unslash( $_POST['rpw_currency'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$valid   = RPW_Currency::codes();
 
@@ -397,6 +406,7 @@ class RPW_Metabox {
 				'factor'   => $factor > 0 ? $factor : 1.0,
 				'currency' => isset( $valid[ $cur ] ) ? $cur : '',
 				'match'    => isset( $matches[ $i ] ) ? substr( sanitize_text_field( (string) $matches[ $i ] ), 0, 100 ) : '',
+				'mode'     => isset( $modes[ $i ] ) && 'id' === $modes[ $i ] ? 'id' : 'words',
 			);
 			if ( count( $links ) >= self::MAX_LINKS ) {
 				break;

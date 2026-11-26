@@ -321,7 +321,8 @@ class RPW_Checker {
 			if ( $checked > 0 ) {
 				sleep( $delay );
 			}
-			$row = self::check_link( $product_id, $link );
+			$waiting = RPW_Jobs::ids( $product_id, $hash ); // Jobs that this check makes unnecessary.
+			$row     = self::check_link( $product_id, $link );
 			if ( ! empty( $row['stale'] ) ) {
 				// The settings changed during the check: make sure a fresh check is queued.
 				if ( self::link_by_hash( $product_id, $hash ) ) {
@@ -331,8 +332,9 @@ class RPW_Checker {
 				// Temporary failure, or the result was not saved: keep (or add) a queued job so the background tries again.
 				RPW_Jobs::enqueue( $product_id, $hash, 5 * MINUTE_IN_SECONDS );
 			} else {
-				// This link is fresh now; a copy still waiting in the queue is not needed.
-				RPW_Jobs::clear( $product_id, $hash );
+				// This link is fresh now; a copy that was waiting in the queue is not needed. A job
+				// queued during the check (a settings change) is newer, so it is kept.
+				RPW_Jobs::delete_ids( $waiting );
 			}
 			++$checked;
 		}
@@ -415,7 +417,7 @@ class RPW_Checker {
 		}
 
 		$match = isset( $link['match'] ) ? (string) $link['match'] : '';
-		$found = RPW_Extractor::extract( wp_remote_retrieve_body( $response ), $match, isset( $link['currency'] ) ? (string) $link['currency'] : '' );
+		$found = RPW_Extractor::extract( wp_remote_retrieve_body( $response ), $match, isset( $link['currency'] ) ? (string) $link['currency'] : '', isset( $link['mode'] ) ? (string) $link['mode'] : 'words' );
 
 		/**
 		 * Filter the extracted result, e.g. to add support for a site
