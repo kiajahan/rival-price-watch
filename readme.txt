@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.11
+Stable tag: 0.2.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -101,6 +101,10 @@ You filled in the **Variant** field, and a price was found, but the page does no
 
 You changed that link's multiplier, currency or variant. Its last price was read the old way, so it is set aside until the next check, which is queued automatically.
 
+= A link says "different currency" =
+
+You chose a currency for that link, but the page states that it sells in another one (for example the link is set to USD and the page only offers GBP). The number is not in your chosen currency, so it is not compared. Choose the page's currency (or Auto-detect) for the link. Rial and toman are the exception: choosing one of them for a page labelled with the other is allowed, because many shops label toman prices as rial.
+
 = A link says "currency unknown" =
 
 The page shows a price but does not say which currency it is in. Choose the currency for that link (the Currency column in the product's Rival prices box).
@@ -124,6 +128,11 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.12 =
+* Fixed: a link set to one currency on a page that only sells in another (for example USD on a page with only a GBP offer) recorded the page's number in the link's currency (90 GBP saved as 90 USD). Such a link now shows "different currency" and is not compared. Choosing toman for a page labelled rial (or the other way round) still works.
+* Fixed: machine-readable prices are read as one whole number, so ".99" is 0.99 (not 99) and "1e3" is 1000 (not 1). In price text, a number cut out of a longer one (".99", "1e3") is rejected instead of guessed.
+* Fixed: a check result is now saved in the same database statement that makes sure the link's settings were not changed since the check began, so a settings change during a check can never be overwritten by a price read the old way.
 
 = 0.2.11 =
 * Fixed: when a check of a foreign rival failed (for example a timeout), the rival moved into your shop's market and the "Your price in …" box for its currency disappeared, so saving the product deleted that price. A failed check now keeps the rival in the currency it was last seen in, and saving only changes the market prices whose boxes were on the page.

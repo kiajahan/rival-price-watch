@@ -252,5 +252,17 @@ rpw_eq( null, RPW_Extractor::extract( '<div itemscope itemtype="https://schema.o
 rpw_eq( -1234.5, RPW_Extractor::normalize_number( '-1.234,50' ), 'the sign is kept by the number reader' );
 rpw_eq( 1234.5, RPW_Extractor::normalize_number( 'USD - 1.234,50' ), 'a dash with a space before the number is not a minus' );
 
+// --- 0.2.12: machine-readable prices are read as whole numbers; cut-out numbers in text are rejected. ---
+rpw_eq( 0.99, RPW_Extractor::normalize_number( '.99', true ), 'machine: ".99" is 0.99, not 99' );
+rpw_eq( -0.99, RPW_Extractor::normalize_number( '-.99', true ), 'machine: "-.99" keeps its sign' );
+rpw_eq( 1000.0, RPW_Extractor::normalize_number( '1e3', true ), 'machine: "1e3" is 1000, not 1' );
+rpw_eq( 150.0, RPW_Extractor::normalize_number( '1.5E2', true ), 'machine: "1.5E2" is 150' );
+rpw_eq( 1.234, RPW_Extractor::normalize_number( '1.234', true ), 'machine: "1.234" is still a decimal' );
+rpw_eq( 1299000.0, RPW_Extractor::normalize_number( '1.299.000', true ), 'machine: "1.299.000" is still thousands' );
+rpw_eq( null, RPW_Extractor::normalize_number( '$.99' ), 'text: "$.99" is not 99' );
+rpw_eq( null, RPW_Extractor::normalize_number( '1e3 USD' ), 'text: "1e3" is not 1' );
+rpw_eq( 1299.0, RPW_Extractor::normalize_number( 'Rs.1,299' ), 'text: "Rs.1,299" is still read' );
+rpw_eq( 0.99, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":{"price":".99","priceCurrency":"USD"}}</script>' )['price'], 'json-ld: ".99" gives 0.99' );
+
 echo "\n{$count} checks, {$failures} failed\n";
 exit( $failures ? 1 : 0 );

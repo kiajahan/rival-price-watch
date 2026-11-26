@@ -796,11 +796,29 @@ class RPW_Extractor {
 				'٬' => ',', '٫' => '.', '،' => ',',
 			)
 		);
-		// Keep the first number-looking run, with a minus sign written right before it
+		// Machine-readable data holding one plain number (".99", "1e3", "-0.5"): read it whole.
+		if ( $machine_form ) {
+			$t = str_replace( "\u{2212}", '-', trim( $s ) );
+			if ( preg_match( '/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/', $t ) ) {
+				return (float) $t;
+			}
+		}
+		// Otherwise keep the first number-looking run, with a minus sign written right before it
 		// ("-1" is a negative price, which callers reject, not a price of 1).
-		if ( ! preg_match( '/([-\x{2212}]?)(\d[\d.,\s\x{00A0}\x{202F}\x{2009}\']*)/u', $s, $m ) ) {
+		if ( ! preg_match( '/([-\x{2212}]?)(\d[\d.,\s\x{00A0}\x{202F}\x{2009}\']*)/u', $s, $m, PREG_OFFSET_CAPTURE ) ) {
 			return null;
 		}
+		$before = substr( $s, 0, $m[0][1] );
+		$after  = substr( $s, $m[0][1] + strlen( $m[0][0] ) );
+		// A number cut out of a longer one is not a price: ".99" or "$.99" (a decimal point
+		// before the digits; "Rs.1,299" is fine) and "1e3" (an exponent after them).
+		if ( '' === $m[1][0] && preg_match( '/(^|[^\p{L}])[.,]$/u', $before ) ) {
+			return null;
+		}
+		if ( preg_match( '/^[eE][-+]?\d/', $after ) ) {
+			return null;
+		}
+		$m   = array( $m[0][0], $m[1][0], $m[2][0] );
 		$neg = '' !== $m[1];
 		$n   = preg_replace( '/[\s\x{00A0}\x{202F}\x{2009}\']+/u', '', $m[2] );
 		$n = rtrim( $n, '.,' );

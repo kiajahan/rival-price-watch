@@ -231,6 +231,10 @@ FA = {
         '«%1$s» نشانی ایمیل درستی نیست. هشدارها همچنان به %2$s فرستاده می\u200cشوند.',
     'Rival Price Watch: these competitor links were not added, because the address is not a valid public web address or its site could not be found right now. Check the address and save again:':
         'Rival Price Watch: این لینک‌های رقیب اضافه نشدند، چون نشانی وب عمومی معتبری نیستند یا سایتشان الان پیدا نشد. نشانی را بررسی کنید و دوباره ذخیره کنید:',
+    'different currency':
+        'ارز متفاوت',
+    'The page sells in %1$s, but this link is set to %2$s, so the price is not compared. Choose %1$s (or Auto-detect) for this link, or use a page that sells in %2$s.':
+        'این صفحه به %1$s می\u200cفروشد، اما ارز این لینک %2$s انتخاب شده است؛ برای همین قیمت مقایسه نمی\u200cشود. برای این لینک %1$s (یا تشخیص خودکار) را انتخاب کنید، یا صفحه\u200cای را بگذارید که به %2$s می\u200cفروشد.',
     'variant not confirmed':
         'مدل تأیید نشد',
     'settings changed, waiting for a new check':
@@ -284,7 +288,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.2.11\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.12\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

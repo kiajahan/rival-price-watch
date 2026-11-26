@@ -852,6 +852,39 @@ try {
 	rpw_eq( 'noprice', RPW_DB::latest_for_product( $p18 )[ RPW_DB::hash( $base . 'neg' ) ]->status ?? null, 'a page priced at -1 gives no price' );
 	rpw_eq( null, RPW_Checker::summary( $p18 )['lowest'], 'and is never the cheapest rival' );
 
+	// ------------------------------------------- 6l. 0.2.12 fixes.
+	echo "\n# A page in another currency is not relabelled; the result write checks for setting changes\n";
+	$p19       = rpw_product( 100, array( $base . 'gbp' ) );
+	$created[] = $p19;
+	$h19       = RPW_DB::hash( $base . 'gbp' );
+	update_post_meta( $p19, '_rpw_links', array( array_merge( RPW_Settings::links( $p19 )[0], array( 'currency' => 'USD' ) ) ) );
+	$rpw_pages[ $base . 'gbp' ] = rpw_page( 90, 'GBP' );
+	RPW_Checker::check_product( $p19 );
+	$last19 = RPW_DB::latest_for_product( $p19 )[ $h19 ] ?? null;
+	rpw_eq( 'mismatch', $last19->status ?? null, 'a USD link on a GBP-only page is reported as a different currency' );
+	rpw_eq( null, $last19->raw_price ?? null, 'and 90 GBP is not saved as 90 USD' );
+	rpw_eq( null, RPW_Checker::summary( $p19 )['lowest'], 'and it is not compared' );
+	rpw_eq( 'different currency', RPW_Admin::status_label( 'mismatch' ), 'the status has a label' );
+
+	// Rial and toman: the link's unit wins (shops often label toman prices as rial).
+	update_post_meta( $p19, '_rpw_links', array( array_merge( RPW_Settings::links( $p19 )[0], array( 'currency' => 'IRT' ) ) ) );
+	$rpw_pages[ $base . 'gbp' ] = rpw_page( 1250000, 'IRR' );
+	RPW_Checker::check_product( $p19 );
+	$last19 = RPW_DB::latest_for_product( $p19 )[ $h19 ] ?? null;
+	rpw_eq( true, in_array( $last19->status ?? null, array( 'ok', 'norate' ), true ), 'a toman link on a page labelled rial is read in toman' );
+	rpw_eq( 'IRT', $last19->raw_currency ?? null, 'with the currency chosen for the link' );
+
+	// The write itself refuses a result when "settings changed" was marked after the check began.
+	$since = RPW_DB::last_id( $p19, $h19 );
+	RPW_DB::add( $p19, $base . 'gbp', array( 'status' => 'changed', 'message' => 'test' ) );
+	$res = RPW_DB::add_unless_changed( $p19, $base . 'gbp', array( 'status' => 'ok', 'price' => 1.5, 'raw_price' => 1.5, 'raw_currency' => $shop, 'currency' => $shop ), $since );
+	rpw_eq( null, $res, 'a result started before the settings change is not written' );
+	rpw_eq( 'changed', RPW_DB::latest_for_product( $p19 )[ $h19 ]->status ?? null, 'so "settings changed" stays the latest state' );
+	$res = RPW_DB::add_unless_changed( $p19, $base . 'gbp', array( 'status' => 'ok', 'price' => 1.5, 'raw_price' => 1.5, 'raw_currency' => $shop, 'currency' => $shop, 'in_stock' => 1 ), RPW_DB::last_id( $p19, $h19 ) );
+	rpw_eq( true, $res, 'a result started after it is written' );
+	$last19 = RPW_DB::latest_for_product( $p19 )[ $h19 ] ?? null;
+	rpw_eq( array( 'ok', 1.5, 1 ), array( $last19->status ?? null, (float) ( $last19->price ?? 0 ), (int) ( $last19->in_stock ?? -1 ) ), 'with every value intact' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

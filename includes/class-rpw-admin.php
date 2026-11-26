@@ -588,6 +588,9 @@ class RPW_Admin {
 		if ( 'unverified' === $status ) {
 			return __( 'variant not confirmed', 'rival-price-watch' );
 		}
+		if ( 'mismatch' === $status ) {
+			return __( 'different currency', 'rival-price-watch' );
+		}
 		if ( 'changed' === $status ) {
 			return __( 'settings changed, waiting for a new check', 'rival-price-watch' );
 		}

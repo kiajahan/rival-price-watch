@@ -169,24 +169,87 @@ class RPW_DB {
 	 */
 	public static function add( $product_id, $url, array $row ) {
 		global $wpdb;
-		$written = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-			self::table(),
-			array(
-				'product_id'   => (int) $product_id,
-				'link_hash'    => self::hash( $url ),
-				'url'          => esc_url_raw( $url ),
-				'price'        => isset( $row['price'] ) ? $row['price'] : null,
-				'currency'     => isset( $row['currency'] ) ? substr( (string) $row['currency'], 0, 10 ) : null,
-				'raw_price'    => isset( $row['raw_price'] ) ? $row['raw_price'] : null,
-				'raw_currency' => isset( $row['raw_currency'] ) ? substr( (string) $row['raw_currency'], 0, 10 ) : null,
-				'in_stock'     => isset( $row['in_stock'] ) ? (int) $row['in_stock'] : null,
-				'status'       => isset( $row['status'] ) ? $row['status'] : 'ok',
-				'message'      => isset( $row['message'] ) ? self::cut( (string) $row['message'], 255 ) : '',
-				'checked_at'   => current_time( 'mysql', true ),
-			)
-		);
+		$written = $wpdb->insert( self::table(), self::columns( $product_id, $url, $row ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		unset( self::$latest[ (int) $product_id ] );
 		return is_int( $written ) && $written > 0;
+	}
+
+	/**
+	 * Save a check result unless the link's settings were changed after it started.
+	 *
+	 * The "settings changed" test and the write are one INSERT ... SELECT ... WHERE NOT EXISTS
+	 * statement, so a settings save cannot land between them.
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $url        Competitor URL.
+	 * @param array  $row        Result.
+	 * @param int    $since_id   Newest row id of the link when the check started (see last_id()).
+	 * @return bool|null True when saved, false when the write failed, null when skipped
+	 *                   because the settings changed.
+	 */
+	public static function add_unless_changed( $product_id, $url, array $row, $since_id ) {
+		global $wpdb;
+		$table  = self::table();
+		$cols   = self::columns( $product_id, $url, $row );
+		$places = array();
+		$values = array();
+		foreach ( $cols as $value ) {
+			if ( null === $value ) {
+				$places[] = 'NULL';
+			} elseif ( is_int( $value ) ) {
+				$places[] = '%d';
+				$values[] = $value;
+			} else {
+				$places[] = '%s';
+				$values[] = is_float( $value ) ? number_format( $value, 4, '.', '' ) : (string) $value;
+			}
+		}
+		$sql = 'INSERT INTO %i (' . implode( ', ', array_keys( $cols ) ) . ') SELECT ' . implode( ', ', $places )
+			. ' FROM (SELECT 1 AS one) AS rpw_one WHERE NOT EXISTS ( SELECT 1 FROM %i WHERE product_id = %d AND link_hash = %s AND id > %d AND status = %s )';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.NotPrepared -- column names are fixed above, every value is a placeholder.
+		$written = $wpdb->query( $wpdb->prepare( $sql, array_merge( array( $table ), $values, array( $table, (int) $product_id, self::hash( $url ), (int) $since_id, 'changed' ) ) ) );
+		unset( self::$latest[ (int) $product_id ] );
+		if ( false === $written ) {
+			return false;
+		}
+		return (int) $written > 0 ? true : null;
+	}
+
+	/**
+	 * Newest row id of a link (0 when it has none).
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $hash       Link hash.
+	 * @return int
+	 */
+	public static function last_id( $product_id, $hash ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(id) FROM %i WHERE product_id = %d AND link_hash = %s', self::table(), (int) $product_id, (string) $hash ) );
+	}
+
+	/**
+	 * Column values of a result row.
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $url        Competitor URL.
+	 * @param array  $row        Result.
+	 * @return array<string, mixed>
+	 */
+	private static function columns( $product_id, $url, array $row ) {
+		return array(
+			'product_id'   => (int) $product_id,
+			'link_hash'    => self::hash( $url ),
+			'url'          => esc_url_raw( $url ),
+			'price'        => isset( $row['price'] ) ? (float) $row['price'] : null,
+			'currency'     => isset( $row['currency'] ) ? substr( (string) $row['currency'], 0, 10 ) : null,
+			'raw_price'    => isset( $row['raw_price'] ) ? (float) $row['raw_price'] : null,
+			'raw_currency' => isset( $row['raw_currency'] ) ? substr( (string) $row['raw_currency'], 0, 10 ) : null,
+			'in_stock'     => isset( $row['in_stock'] ) ? (int) $row['in_stock'] : null,
+			'status'       => isset( $row['status'] ) ? (string) $row['status'] : 'ok',
+			'message'      => isset( $row['message'] ) ? self::cut( (string) $row['message'], 255 ) : '',
+			'checked_at'   => current_time( 'mysql', true ),
+		);
 	}
 
 	/**

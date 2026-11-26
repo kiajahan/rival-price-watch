@@ -440,8 +440,27 @@ class RPW_Checker {
 		}
 
 		// Currency: the one chosen for this link, else what the page says. Nothing is assumed.
-		$from = '' !== $link['currency'] ? $link['currency'] : RPW_Currency::normalize( $found['currency'] );
-		$raw  = round( (float) $found['price'] * (float) $link['factor'], 4 );
+		$page_cur = RPW_Currency::normalize( $found['currency'] );
+		$from     = '' !== $link['currency'] ? $link['currency'] : $page_cur;
+		$raw      = round( (float) $found['price'] * (float) $link['factor'], 4 );
+
+		// The page states a different currency than the one chosen for the link: the number is
+		// not in the link's currency, so it is not relabelled. Rial and toman are the exception:
+		// many shops label toman prices as rial, and choosing the unit is what the link setting is for.
+		$iran = array( 'IRR', 'IRT' );
+		if ( '' !== $link['currency'] && $page_cur && $page_cur !== $link['currency']
+			&& ! ( in_array( $page_cur, $iran, true ) && in_array( $link['currency'], $iran, true ) ) ) {
+			$row['status']       = 'mismatch';
+			$row['raw_currency'] = $link['currency']; // Keeps the link in its market.
+			$row['in_stock']     = $found['in_stock'];
+			$row['message']      = sprintf(
+				/* translators: 1: currency on the competitor page, 2: currency chosen for the link. */
+				__( 'The page sells in %1$s, but this link is set to %2$s, so the price is not compared. Choose %1$s (or Auto-detect) for this link, or use a page that sells in %2$s.', 'rival-price-watch' ),
+				$page_cur,
+				$link['currency']
+			);
+			return compact( 'row', 'found' );
+		}
 
 		// No real price is this large (the database column holds up to about 10^16), so a page
 		// claiming one is broken or hostile. Report it instead of failing to save it.
@@ -508,6 +527,7 @@ class RPW_Checker {
 	 *               "saved" is false when the result could not be written to the database.
 	 */
 	public static function check_link( $product_id, array $link ) {
+		$since  = RPW_DB::last_id( $product_id, RPW_DB::hash( $link['url'] ) );
 		$result = self::inspect_link( $product_id, $link );
 		$row    = $result['row'];
 		// The page took a while to load. If the link's settings were changed (or the link
@@ -525,7 +545,15 @@ class RPW_Checker {
 				$row['raw_currency'] = (string) $prev->raw_currency;
 			}
 		}
-		$row['saved'] = RPW_DB::add( $product_id, $link['url'], $row );
+		// Written only if no "settings changed" mark was added since the check started, in the
+		// same database statement, so a save can never slip in between the check and the write.
+		$saved = RPW_DB::add_unless_changed( $product_id, $link['url'], $row, $since );
+		if ( null === $saved ) {
+			$row['stale'] = true;
+			$row['saved'] = false;
+			return $row;
+		}
+		$row['saved'] = $saved;
 		return $row;
 	}
 
