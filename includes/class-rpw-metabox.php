@@ -129,7 +129,7 @@ class RPW_Metabox {
 						if ( ! $last ) {
 							echo '<span class="rpw-muted">' . esc_html__( 'not checked yet', 'rival-price-watch' ) . '</span>';
 						} elseif ( in_array( $last->status, array( 'ok', 'norate' ), true ) && ( null !== $last->raw_price || null !== $last->price ) ) {
-							$native = null !== $last->raw_price ? (float) $last->raw_price : (float) $last->price;
+							$native = (float) RPW_Checker::price_in_market( $last, $cur );
 							echo '<span title="' . esc_attr( 'ok' === $last->status ? $last->message : '' ) . '">' . wp_kses_post( RPW_Checker::money( $native, $cur ) ) . '</span>';
 							if ( '0' === (string) $last->in_stock ) {
 								echo ' <span class="rpw-muted">(' . esc_html__( 'out of stock', 'rival-price-watch' ) . ')</span>';

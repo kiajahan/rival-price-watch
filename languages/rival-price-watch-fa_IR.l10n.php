@@ -166,6 +166,7 @@ return ['domain'=>'rival-price-watch','plural-forms'=>'nplurals=1; plural=0;','l
 'Once a day'=>'روزی یک بار',
 'Once a week'=>'هفته‌ای یک بار',
 'Only when I click "Check now"'=>'فقط وقتی «بررسی همین حالا» را بزنم',
+'"%1$s" is not a valid email address. Alerts still go to %2$s.'=>'«%1$s» نشانی ایمیل درستی نیست. هشدارها همچنان به %2$s فرستاده می‌شوند.',
 'Rival Price Watch needs WooCommerce to be installed and active.'=>'افزونه ردیاب قیمت رقبا به ووکامرس نصب‌شده و فعال نیاز دارد.',
 'Checked %d competitor link.'."\0".'Checked %d competitor links.'=>'تعداد %d لینک رقیب بررسی شد.',
 '%d more is being checked in the background; refresh in a minute.'."\0".'%d more are being checked in the background; refresh in a minute.'=>'%d لینک دیگر در پس‌زمینه بررسی می‌شود؛ یک دقیقه دیگر صفحه را تازه کنید.',

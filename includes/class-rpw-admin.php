@@ -356,7 +356,7 @@ class RPW_Admin {
 		foreach ( $index as $pid => $item ) {
 			foreach ( $item['links'] as $link ) {
 				$last = $item['latest'][ RPW_DB::hash( $link['url'] ) ] ?? null;
-				$c    = $last && ! empty( $last->raw_currency ) ? strtoupper( $last->raw_currency ) : ( '' !== $link['currency'] ? $link['currency'] : $shop );
+				$c    = RPW_Checker::market_of( $link, $last );
 
 				$currencies[ $c ] = true;
 			}
@@ -627,6 +627,7 @@ class RPW_Admin {
 	private static function render_settings() {
 		$s = RPW_Settings::get();
 		$o = RPW_Settings::OPTION;
+		settings_errors( RPW_Settings::OPTION );
 		?>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'rpw_settings_group' ); ?>

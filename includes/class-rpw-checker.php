@@ -605,6 +605,46 @@ class RPW_Checker {
 	}
 
 	/**
+	 * Which market (currency) a rival belongs to.
+	 *
+	 * Rial and toman are the same money (1 toman = 10 rials), so for a rial or toman
+	 * shop a rival in the other unit is compared in the shop's own market, exactly.
+	 *
+	 * @param array       $link Link.
+	 * @param object|null $last Latest result.
+	 * @return string Currency code.
+	 */
+	public static function market_of( array $link, $last ) {
+		$shop = RPW_Currency::shop();
+		$cur  = $last && ! empty( $last->raw_currency ) ? strtoupper( $last->raw_currency )
+			: ( '' !== $link['currency'] ? $link['currency'] : $shop );
+		$iran = array( 'IRR', 'IRT' );
+		if ( $cur !== $shop && in_array( $cur, $iran, true ) && in_array( $shop, $iran, true ) ) {
+			return $shop;
+		}
+		return $cur;
+	}
+
+	/**
+	 * A result's price in the currency of its market (see market_of()).
+	 *
+	 * @param object $last   Result row.
+	 * @param string $market Market currency.
+	 * @return float|null
+	 */
+	public static function price_in_market( $last, $market ) {
+		if ( null !== $last->raw_price ) {
+			$from = ! empty( $last->raw_currency ) ? strtoupper( $last->raw_currency ) : $market;
+			if ( $from === $market ) {
+				return (float) $last->raw_price;
+			}
+			// Only rial ⇄ toman lands here (market_of() merges nothing else): exact, no rate needed.
+			return RPW_Currency::convert( (float) $last->raw_price, $from, $market, array() );
+		}
+		return 'ok' === $last->status && null !== $last->price ? (float) $last->price : null;
+	}
+
+	/**
 	 * Rivals grouped by the currency they sell in, each compared in that currency.
 	 *
 	 * Your price for a market is, in order: the WooCommerce price (shop currency),
@@ -636,8 +676,7 @@ class RPW_Checker {
 
 		foreach ( $links as $link ) {
 			$last = $latest[ RPW_DB::hash( $link['url'] ) ] ?? null;
-			$cur  = $last && ! empty( $last->raw_currency ) ? strtoupper( $last->raw_currency )
-				: ( '' !== $link['currency'] ? $link['currency'] : $shop );
+			$cur  = self::market_of( $link, $last );
 			if ( ! isset( $out[ $cur ] ) ) {
 				$out[ $cur ] = array(
 					'currency' => $cur,
@@ -655,8 +694,8 @@ class RPW_Checker {
 			}
 			$m            = &$out[ $cur ];
 			$m['checked'] = ( null === $m['checked'] || $last->checked_at > $m['checked'] ) ? $last->checked_at : $m['checked'];
-			// Native price: raw_price (any check that found a price, even without an exchange rate).
-			$native = null !== $last->raw_price ? (float) $last->raw_price : ( 'ok' === $last->status ? (float) $last->price : null );
+			// Price in this market's currency (any check that found a price, even without an exchange rate).
+			$native = self::price_in_market( $last, $cur );
 			if ( in_array( $last->status, array( 'ok', 'norate' ), true ) && $native > 0 && '0' !== (string) $last->in_stock ) {
 				if ( null === $m['lowest'] || $native < $m['lowest']['price'] ) {
 					$m['lowest'] = array(

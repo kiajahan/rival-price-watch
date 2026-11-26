@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.8
+Stable tag: 0.2.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -56,7 +56,7 @@ Checks identify themselves with a clear user agent (the name of the plugin only;
 
 This plugin connects to outside services only in these cases:
 
-**Competitor product pages you add.** To read prices, the plugin downloads the web pages whose links you enter in a product's "Rival prices" box, on the schedule you choose or when you click "Check now". Only a normal page request is sent (with a user agent naming this plugin and your site address). No customer, order or personal data is sent.
+**Competitor product pages you add.** To read prices, the plugin downloads the web pages whose links you enter in a product's "Rival prices" box, on the schedule you choose or when you click "Check now". Only a normal page request is sent, with a user agent naming this plugin and its version. Your site's address is not sent. No customer, order or personal data is sent.
 
 **ExchangeRate-API (open.er-api.com).** Only when an administrator clicks "Fill in today's official rates" under Settings → Exchange rates, the plugin requests https://open.er-api.com/v6/latest/USD to get current exchange rates. No data about your site, products or customers is sent. The button is not shown for shops that use the Iranian rial or toman.
 
@@ -93,6 +93,18 @@ The site is blocking automatic visits. Increase the pause between requests, or r
 
 WordPress runs scheduled tasks when someone visits your site. On quiet sites, add a real cron job on your server that calls wp-cron.php.
 
+= A link says "variant not confirmed" =
+
+You filled in the **Variant** field, and a price was found, but the page does not show that it belongs to that variant. It is not compared, so a wrong version can never trigger an alert. Use the SKU or barcode of the right version, or clear the field if the page only sells one version.
+
+= A link says "settings changed, waiting for a new check" =
+
+You changed that link's multiplier, currency or variant. Its last price was read the old way, so it is set aside until the next check, which is queued automatically.
+
+= A link says "currency unknown" =
+
+The page shows a price but does not say which currency it is in. Choose the currency for that link (the Currency column in the product's Rival prices box).
+
 = A link says "needs an exchange rate" =
 
 That competitor sells in another currency. Go to WooCommerce → Rival Prices → Settings → Exchange rates and fill in the rate for that currency.
@@ -112,6 +124,11 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.9 =
+* Fixed: for a rial or toman shop, a rival priced in the other unit is now compared in your own market, exactly (1 toman = 10 rials). Before, it got a separate market marked "≈" and asked for "Your price in IRR".
+* Fixed: a mistyped alert email address is no longer replaced by the admin address without warning. The previous address is kept and Settings shows an error.
+* Docs: the third-party services section now says the site address is not sent (true since 0.2.6), and the FAQ explains "variant not confirmed", "settings changed" and "currency unknown".
 
 = 0.2.8 =
 * Fixed: saving the settings (for example only the alert email) no longer moves the next automatic check to 10 minutes later. Only a change of the check frequency reschedules it.

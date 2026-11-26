@@ -712,6 +712,30 @@ try {
 	rpw_eq( 0, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . RPW_Jobs::table() . ' WHERE product_id = %d AND link_hash = %s', $p13, 'claimtest' ) ), 'the worker holding the claim can' ); // phpcs:ignore
 	RPW_Jobs::clear( $p13 );
 
+	// ------------------------------------------- 6i. 0.2.9 fixes.
+	echo "\n# Rial and toman share one market; mistyped alert email\n";
+	if ( in_array( $shop, array( 'IRR', 'IRT' ), true ) ) {
+		$other                       = 'IRT' === $shop ? 'IRR' : 'IRT';
+		$p14                         = rpw_product( 1000000, array( $base . 'ir' ) );
+		$created[]                   = $p14;
+		$rpw_pages[ $base . 'ir' ]   = rpw_page( 'IRT' === $shop ? 9000000 : 90000, $other ); // 900,000 toman either way
+		RPW_Checker::check_product( $p14 );
+		$mk14 = RPW_Checker::markets( $p14 );
+		rpw_eq( array( $shop ), array_keys( $mk14 ), 'a rival in the other Iranian unit is in the shop market' );
+		rpw_eq( 'shop', $mk14[ $shop ]['own_source'] ?? null, 'compared with the real shop price, not an approximation' );
+		rpw_eq( -10.0, round( (float) ( $mk14[ $shop ]['diff'] ?? 0 ), 1 ), 'and the difference is exact (-10%)' );
+	} else {
+		echo "skip rial/toman checks: shop currency is {$shop}\n";
+	}
+	require_once ABSPATH . 'wp-admin/includes/template.php'; // Settings errors live here; the Settings page loads it.
+	$before_s = RPW_Settings::get();
+	$clean    = RPW_Settings::sanitize( array_merge( $before_s, array( 'alert_email' => 'name@shop' ) ) );
+	rpw_eq( $before_s['alert_email'], $clean['alert_email'], 'a mistyped alert email keeps the previous address' );
+	$errs = get_settings_errors( RPW_Settings::OPTION );
+	rpw_eq( true, (bool) array_filter( $errs, static function ( $e ) { return 'rpw_alert_email' === $e['code']; } ), 'and Settings shows an error' );
+	$clean2 = RPW_Settings::sanitize( array_merge( $before_s, array( 'alert_email' => 'new.owner@example.org' ) ) );
+	rpw_eq( 'new.owner@example.org', $clean2['alert_email'], 'a valid new address is saved' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

@@ -72,8 +72,19 @@ class RPW_Settings {
 		$out['frequency'] = array_key_exists( $freq, self::frequencies() ) ? $freq : 'daily';
 		$out['alerts']    = empty( $input['alerts'] ) ? 0 : 1;
 
-		$email              = isset( $input['alert_email'] ) ? sanitize_email( $input['alert_email'] ) : '';
-		$out['alert_email'] = is_email( $email ) ? $email : get_option( 'admin_email' );
+		// A mistyped address is not silently replaced: keep the previous one and say so.
+		$typed = isset( $input['alert_email'] ) ? trim( (string) $input['alert_email'] ) : '';
+		$email = sanitize_email( $typed );
+		if ( is_email( $email ) ) {
+			$out['alert_email'] = $email;
+		} else {
+			$old                = get_option( self::OPTION );
+			$out['alert_email'] = is_array( $old ) && ! empty( $old['alert_email'] ) && is_email( $old['alert_email'] ) ? $old['alert_email'] : get_option( 'admin_email' );
+			if ( '' !== $typed && function_exists( 'add_settings_error' ) ) {
+				/* translators: 1: the address that was typed, 2: the address that is kept. */
+				add_settings_error( self::OPTION, 'rpw_alert_email', sprintf( __( '"%1$s" is not a valid email address. Alerts still go to %2$s.', 'rival-price-watch' ), $typed, $out['alert_email'] ) );
+			}
+		}
 
 		// Only alert when the rival is at least this many percent cheaper (0 = any difference).
 		$percent              = isset( $input['alert_percent'] ) ? (float) str_replace( ',', '.', (string) $input['alert_percent'] ) : 0;
