@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.10
+Stable tag: 0.2.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,10 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.11 =
+* Fixed: when a check of a foreign rival failed (for example a timeout), the rival moved into your shop's market and the "Your price in …" box for its currency disappeared, so saving the product deleted that price. A failed check now keeps the rival in the currency it was last seen in, and saving only changes the market prices whose boxes were on the page.
+* Fixed: a negative price on a competitor page (for example "-1" used as a placeholder) was read as a positive price and could trigger a false alert. The minus sign is now kept and such prices are rejected.
 
 = 0.2.10 =
 * Fixed: on a page with microdata offers in several currencies, a link set to one currency could get another offer's price and currency (for example 90 GBP instead of 100 USD), which could then be recorded as 90 USD. Each offer's currency is now kept apart from the link's.

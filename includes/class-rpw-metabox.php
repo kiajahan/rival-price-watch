@@ -412,13 +412,20 @@ class RPW_Metabox {
 			RPW_DB::delete_product( $post_id, $gone );
 		}
 
-		// Your own price per foreign market (currency).
-		$market = array();
+		// Your own price per foreign market (currency). Only the markets whose box was on the
+		// page are changed (an empty box clears its price); a price for a market that was not
+		// shown (for example while its rival's last check failed) is kept.
+		$market = $links ? RPW_Settings::market_prices( $post_id ) : array();
 		foreach ( (array) ( isset( $_POST['rpw_market_price'] ) ? wp_unslash( $_POST['rpw_market_price'] ) : array() ) as $cur => $val ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- parsed below.
-			$cur   = strtoupper( sanitize_key( (string) $cur ) );
+			$cur = strtoupper( sanitize_key( (string) $cur ) );
+			if ( ! isset( RPW_Currency::codes()[ $cur ] ) ) {
+				continue;
+			}
 			$price = RPW_Currency::parse_rate( sanitize_text_field( (string) $val ) );
-			if ( isset( RPW_Currency::codes()[ $cur ] ) && $price > 0 ) {
+			if ( null !== $price && $price > 0 ) {
 				$market[ $cur ] = $price;
+			} else {
+				unset( $market[ $cur ] );
 			}
 		}
 		if ( $market ) {

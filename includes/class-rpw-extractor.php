@@ -796,11 +796,13 @@ class RPW_Extractor {
 				'٬' => ',', '٫' => '.', '،' => ',',
 			)
 		);
-		// Keep the first number-looking run.
-		if ( ! preg_match( '/\d[\d.,\s\x{00A0}\x{202F}\x{2009}\']*/u', $s, $m ) ) {
+		// Keep the first number-looking run, with a minus sign written right before it
+		// ("-1" is a negative price, which callers reject, not a price of 1).
+		if ( ! preg_match( '/([-\x{2212}]?)(\d[\d.,\s\x{00A0}\x{202F}\x{2009}\']*)/u', $s, $m ) ) {
 			return null;
 		}
-		$n = preg_replace( '/[\s\x{00A0}\x{202F}\x{2009}\']+/u', '', $m[0] );
+		$neg = '' !== $m[1];
+		$n   = preg_replace( '/[\s\x{00A0}\x{202F}\x{2009}\']+/u', '', $m[2] );
 		$n = rtrim( $n, '.,' );
 
 		$has_comma = false !== strpos( $n, ',' );
@@ -827,7 +829,7 @@ class RPW_Extractor {
 		if ( ! is_numeric( $n ) ) {
 			return null;
 		}
-		return (float) $n;
+		return $neg ? -(float) $n : (float) $n;
 	}
 
 	/**

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Rival Price Watch
  * Description:       Track competitor prices for your WooCommerce products. Add competitor product links, get daily price checks, price history and email alerts when a rival is cheaper.
- * Version:           0.2.10
+ * Version:           0.2.11
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Requires Plugins:  woocommerce
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'RPW_VERSION', '0.2.10' );
+define( 'RPW_VERSION', '0.2.11' );
 define( 'RPW_FILE', __FILE__ );
 define( 'RPW_DIR', plugin_dir_path( __FILE__ ) );
 define( 'RPW_URL', plugin_dir_url( __FILE__ ) );

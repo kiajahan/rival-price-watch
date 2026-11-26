@@ -245,5 +245,12 @@ rpw_eq( 'USD', $r['currency'], 'microdata: and its currency' );
 $r = RPW_Extractor::extract( $two, '', 'GBP' );
 rpw_eq( 90.0, $r['price'], 'microdata: a GBP link gets the GBP offer' );
 
+// --- 0.2.11: a minus sign is kept, so a negative price is rejected instead of read as positive. ---
+rpw_eq( null, RPW_Extractor::extract( '<script type="application/ld+json">{"@type":"Product","offers":{"price":"-1","priceCurrency":"USD"}}</script>' )['price'], 'json-ld: "-1" is not a price of 1' );
+rpw_eq( null, RPW_Extractor::extract( '<meta property="product:price:amount" content="-5"><meta property="product:price:currency" content="USD">' )['price'], 'meta: -5 is not a price of 5' );
+rpw_eq( null, RPW_Extractor::extract( '<div itemscope itemtype="https://schema.org/Offer"><span itemprop="price">−20</span></div>' )['price'], 'microdata: a Unicode minus counts too' );
+rpw_eq( -1234.5, RPW_Extractor::normalize_number( '-1.234,50' ), 'the sign is kept by the number reader' );
+rpw_eq( 1234.5, RPW_Extractor::normalize_number( 'USD - 1.234,50' ), 'a dash with a space before the number is not a minus' );
+
 echo "\n{$count} checks, {$failures} failed\n";
 exit( $failures ? 1 : 0 );

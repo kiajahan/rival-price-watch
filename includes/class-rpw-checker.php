@@ -517,6 +517,14 @@ class RPW_Checker {
 			$row['saved'] = false;
 			return $row;
 		}
+		// A check that read no price (site down, no price on the page) keeps the currency the
+		// rival was last seen in, so it stays in its market instead of moving to the shop's.
+		if ( empty( $row['raw_currency'] ) && ! isset( $row['raw_price'] ) && in_array( $row['status'], array( 'error', 'noprice' ), true ) ) {
+			$prev = RPW_DB::latest_for_product( $product_id )[ RPW_DB::hash( $link['url'] ) ] ?? null;
+			if ( $prev && ! empty( $prev->raw_currency ) ) {
+				$row['raw_currency'] = (string) $prev->raw_currency;
+			}
+		}
 		$row['saved'] = RPW_DB::add( $product_id, $link['url'], $row );
 		return $row;
 	}

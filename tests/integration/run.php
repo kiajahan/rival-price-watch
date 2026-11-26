@@ -806,6 +806,52 @@ try {
 	rpw_eq( 0, rpw_jobs_of( $p16 ), 'and nothing is left in the queue' );
 	RPW_Jobs::clear( $p16 );
 
+	// ------------------------------------------- 6k. 0.2.11 fixes.
+	echo "\n# A failed check keeps the rival in its market; hidden market prices are kept\n";
+	$fx        = 'EUR' === $shop ? 'USD' : 'EUR';
+	$p17       = rpw_product( 100, array( $base . 'fx' ) );
+	$created[] = $p17;
+	$h17       = RPW_DB::hash( $base . 'fx' );
+	$rpw_pages[ $base . 'fx' ] = rpw_page( 80, $fx );
+	RPW_Checker::check_product( $p17 );
+	update_post_meta( $p17, '_rpw_market_prices', array( $fx => 95.0 ) );
+	$rpw_pages[ $base . 'fx' ] = 503;
+	RPW_Checker::check_product( $p17 );
+	RPW_Jobs::clear( $p17 );
+	rpw_eq( 'error', RPW_DB::latest_for_product( $p17 )[ $h17 ]->status ?? null, 'the check failed' );
+	rpw_eq( array( $fx ), array_keys( RPW_Checker::markets( $p17 ) ), 'and the rival stays in its own market' );
+
+	$admin_ids = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+	$prev_user = get_current_user_id();
+	wp_set_current_user( (int) $admin_ids[0] );
+	$form = array(
+		'rpw_nonce'    => wp_create_nonce( 'rpw_save_links' ),
+		'rpw_url'      => array( $base . 'fx' ),
+		'rpw_label'    => array( '' ),
+		'rpw_factor'   => array( '1' ),
+		'rpw_match'    => array( '' ),
+		'rpw_currency' => array( '' ),
+	);
+	$_POST = $form; // The market box was not on the page.
+	RPW_Metabox::save( $p17, get_post( $p17 ) );
+	rpw_eq( array( $fx => 95.0 ), RPW_Settings::market_prices( $p17 ), 'saving without that market box keeps your price for it' );
+	$_POST = array_merge( $form, array( 'rpw_market_price' => array( $fx => '' ) ) ); // Box shown and emptied.
+	RPW_Metabox::save( $p17, get_post( $p17 ) );
+	rpw_eq( array(), RPW_Settings::market_prices( $p17 ), 'emptying the box clears it' );
+	$_POST = array_merge( $form, array( 'rpw_market_price' => array( $fx => '99.5' ) ) );
+	RPW_Metabox::save( $p17, get_post( $p17 ) );
+	rpw_eq( array( $fx => 99.5 ), RPW_Settings::market_prices( $p17 ), 'and typing a price saves it' );
+	$_POST = array();
+	wp_set_current_user( $prev_user );
+
+	// A negative price on the page is not a price.
+	$p18       = rpw_product( 100, array( $base . 'neg' ) );
+	$created[] = $p18;
+	$rpw_pages[ $base . 'neg' ] = rpw_page( '-1', $shop );
+	RPW_Checker::check_product( $p18 );
+	rpw_eq( 'noprice', RPW_DB::latest_for_product( $p18 )[ RPW_DB::hash( $base . 'neg' ) ]->status ?? null, 'a page priced at -1 gives no price' );
+	rpw_eq( null, RPW_Checker::summary( $p18 )['lowest'], 'and is never the cheapest rival' );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();
