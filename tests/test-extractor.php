@@ -235,5 +235,15 @@ $long = RPW_Extractor::extract( '<div itemscope itemtype="https://schema.org/Off
 rpw_eq( 300, (int) preg_match_all( '/./su', $long['name'] ), 'a very long name is cut to 300 characters' );
 rpw_eq( true, (bool) preg_match( '//u', $long['name'] ), 'without breaking a Persian character' );
 
+// --- 0.2.10: the link's currency is not overwritten by an offer's currency while offers are read. ---
+$two = '<div itemscope itemtype="https://schema.org/Product"><span itemprop="name">X</span>'
+	. '<div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><meta itemprop="priceCurrency" content="USD"><span itemprop="price" content="100">100</span></div>'
+	. '<div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><meta itemprop="priceCurrency" content="GBP"><span itemprop="price" content="90">90</span></div></div>';
+$r = RPW_Extractor::extract( $two, '', 'USD' );
+rpw_eq( 100.0, $r['price'], 'microdata: a USD link gets the USD offer' );
+rpw_eq( 'USD', $r['currency'], 'microdata: and its currency' );
+$r = RPW_Extractor::extract( $two, '', 'GBP' );
+rpw_eq( 90.0, $r['price'], 'microdata: a GBP link gets the GBP offer' );
+
 echo "\n{$count} checks, {$failures} failed\n";
 exit( $failures ? 1 : 0 );

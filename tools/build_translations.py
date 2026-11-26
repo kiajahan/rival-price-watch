@@ -229,6 +229,8 @@ FA = {
         'صفحه قیمتی نشان می\u200cدهد که نمی\u200cتواند واقعی باشد، پس استفاده نشد.',
     '"%1$s" is not a valid email address. Alerts still go to %2$s.':
         '«%1$s» نشانی ایمیل درستی نیست. هشدارها همچنان به %2$s فرستاده می\u200cشوند.',
+    'Rival Price Watch: these competitor links were not added, because the address is not a valid public web address or its site could not be found right now. Check the address and save again:':
+        'Rival Price Watch: این لینک‌های رقیب اضافه نشدند، چون نشانی وب عمومی معتبری نیستند یا سایتشان الان پیدا نشد. نشانی را بررسی کنید و دوباره ذخیره کنید:',
     'variant not confirmed':
         'مدل تأیید نشد',
     'settings changed, waiting for a new check':
@@ -282,7 +284,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.2.9\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.10\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.9
+Stable tag: 0.2.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,11 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.10 =
+* Fixed: on a page with microdata offers in several currencies, a link set to one currency could get another offer's price and currency (for example 90 GBP instead of 100 USD), which could then be recorded as 90 USD. Each offer's currency is now kept apart from the link's.
+* Fixed: saving a product while a competitor's site could not be looked up (for example during a DNS outage) removed that link and deleted its price history. A saved link is now kept; it is checked again at every fetch. New links that cannot be added are listed in an error after saving.
+* Fixed: when a link's multiplier, currency or variant was changed while its page was being fetched, the price read the old way could be saved over the "settings changed" mark and the queued check removed. Such a result is now thrown away and the link is checked again.
 
 = 0.2.9 =
 * Fixed: for a rial or toman shop, a rival priced in the other unit is now compared in your own market, exactly (1 toman = 10 rials). Before, it got a separate market marked "≈" and asked for "Your price in IRR".

@@ -233,9 +233,10 @@ class RPW_Extractor {
 				}
 				return '';
 			};
-			$c        = self::no_identity();
-			$currency = $pick( array( 'priceCurrency' ) );
-			$avail    = $pick( array( 'availability' ) );
+			// The offer's own currency. Kept apart from $currency (the link's chosen currency).
+			$c         = self::no_identity();
+			$offer_cur = $pick( array( 'priceCurrency' ) );
+			$avail     = $pick( array( 'availability' ) );
 			$names    = array();
 			foreach ( array_reverse( $keys ) as $k ) {
 				if ( isset( $props[ $k ]['name'] ) && ! in_array( $props[ $k ]['name'], $names, true ) ) {
@@ -258,7 +259,7 @@ class RPW_Extractor {
 				$c,
 				array(
 					'price'    => $price,
-					'currency' => '' !== $currency ? strtoupper( $currency ) : null,
+					'currency' => '' !== $offer_cur ? strtoupper( $offer_cur ) : null,
 					'in_stock' => '' !== $avail ? self::availability_in_stock( $avail ) : null,
 					'group'    => '' === $root ? -1 - count( $candidates ) : $roots[ $root ], // A price outside every item is its own product.
 				)

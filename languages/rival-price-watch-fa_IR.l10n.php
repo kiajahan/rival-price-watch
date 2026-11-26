@@ -162,6 +162,7 @@ return ['domain'=>'rival-price-watch','plural-forms'=>'nplurals=1; plural=0;','l
 'Auto-detect'=>'تشخیص خودکار',
 'Test'=>'آزمایش',
 'Price history'=>'تاریخچه قیمت',
+'Rival Price Watch: these competitor links were not added, because the address is not a valid public web address or its site could not be found right now. Check the address and save again:'=>'Rival Price Watch: این لینک‌های رقیب اضافه نشدند، چون نشانی وب عمومی معتبری نیستند یا سایتشان الان پیدا نشد. نشانی را بررسی کنید و دوباره ذخیره کنید:',
 'Twice a day'=>'روزی دو بار',
 'Once a day'=>'روزی یک بار',
 'Once a week'=>'هفته‌ای یک بار',

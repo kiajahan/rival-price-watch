@@ -736,6 +736,76 @@ try {
 	$clean2 = RPW_Settings::sanitize( array_merge( $before_s, array( 'alert_email' => 'new.owner@example.org' ) ) );
 	rpw_eq( 'new.owner@example.org', $clean2['alert_email'], 'a valid new address is saved' );
 
+	// ------------------------------------------- 6j. 0.2.10 fixes.
+	echo "\n# Saved links survive a failed DNS lookup; settings changed during a check\n";
+	$p15        = rpw_product( 100, array( $base . 'dns' ) );
+	$created[]  = $p15;
+	$h15        = RPW_DB::hash( $base . 'dns' );
+	$rpw_pages[ $base . 'dns' ] = rpw_page( 90, $shop );
+	RPW_Checker::check_product( $p15 );
+	$admin_ids  = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+	$prev_user  = get_current_user_id();
+	wp_set_current_user( (int) $admin_ids[0] );
+	$new_url    = 'https://new-site.rpw-test.invalid/x';
+	$_POST      = array(
+		'rpw_nonce'    => wp_create_nonce( 'rpw_save_links' ),
+		'rpw_url'      => array( $base . 'dns', $new_url ),
+		'rpw_label'    => array( 'Kept', '' ),
+		'rpw_factor'   => array( '1', '1' ),
+		'rpw_match'    => array( '', '' ),
+		'rpw_currency' => array( '', '' ),
+	);
+	RPW_Metabox::save( $p15, get_post( $p15 ) );
+	$_POST = array();
+	rpw_eq( array( $base . 'dns' ), wp_list_pluck( RPW_Settings::links( $p15 ), 'url' ), 'a saved link whose site cannot be looked up is kept, a new one is not added' );
+	rpw_eq( 'Kept', RPW_Settings::links( $p15 )[0]['label'] ?? null, 'and the kept link takes the new label' );
+	rpw_eq( 'ok', RPW_DB::latest_for_product( $p15 )[ $h15 ]->status ?? null, 'and its price history is kept' );
+	rpw_eq( array( $new_url ), get_transient( 'rpw_rejected_' . get_current_user_id() ), 'the link that was not added is reported' );
+	ob_start();
+	RPW_Metabox::rejected_notice();
+	rpw_eq( true, false !== strpos( (string) ob_get_clean(), $new_url ), 'and shown as an error after the save' );
+	wp_set_current_user( $prev_user );
+
+	// Someone changes a link's multiplier while its page is being fetched.
+	$p16       = rpw_product( 100, array( $base . 'race' ) );
+	$created[] = $p16;
+	$h16       = RPW_DB::hash( $base . 'race' );
+	$rpw_pages[ $base . 'race' ] = rpw_page( 90, $shop );
+	$race_on   = true;
+	$racer     = static function ( $pre, $args, $url ) use ( $base, $p16, &$race_on ) {
+		if ( $race_on && $url === $base . 'race' ) {
+			$race_on = false;
+			$old     = array();
+			foreach ( RPW_Settings::links( $p16 ) as $l ) {
+				$old[ RPW_DB::hash( $l['url'] ) ] = $l;
+			}
+			$new              = array_values( $old );
+			$new[0]['factor'] = 2;
+			update_post_meta( $p16, '_rpw_links', $new );
+			RPW_Metabox::links_changed( $p16, $old, $new );
+		}
+		return $pre;
+	};
+	add_filter( 'pre_http_request', $racer, 1, 3 );
+	RPW_Checker::check_product( $p16 );
+	rpw_eq( 'changed', RPW_DB::latest_for_product( $p16 )[ $h16 ]->status ?? null, '"Check now": a price read with the old settings is not saved' );
+	rpw_eq( 1, rpw_jobs_of( $p16 ), 'and a fresh check stays queued' );
+	RPW_Jobs::clear( $p16 );
+	RPW_Checker::check_product( $p16 );
+	rpw_eq( 180.0, (float) ( RPW_DB::latest_for_product( $p16 )[ $h16 ]->raw_price ?? 0 ), 'the next check reads it with the new multiplier' );
+
+	// The same during a background batch.
+	update_post_meta( $p16, '_rpw_links', array( array_merge( RPW_Settings::links( $p16 )[0], array( 'factor' => 1 ) ) ) );
+	$race_on = true;
+	RPW_Jobs::enqueue( $p16, $h16 );
+	RPW_Checker::process_queue();
+	remove_filter( 'pre_http_request', $racer, 1 );
+	// The stale result is thrown away and the fresh job runs in the same batch.
+	rpw_eq( 'ok', RPW_DB::latest_for_product( $p16 )[ $h16 ]->status ?? null, 'background: the link is checked again at once' );
+	rpw_eq( 180.0, (float) ( RPW_DB::latest_for_product( $p16 )[ $h16 ]->raw_price ?? 0 ), 'with the new multiplier, not the old price' );
+	rpw_eq( 0, rpw_jobs_of( $p16 ), 'and nothing is left in the queue' );
+	RPW_Jobs::clear( $p16 );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

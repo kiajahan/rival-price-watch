@@ -253,7 +253,13 @@ class RPW_Checker {
 			++$done;
 			// Each result is final as soon as it is saved: the job is removed (or put back for a retry) now, not at the end of the batch.
 			// A result that could not be saved is not acknowledged; it is tried again like a temporary failure.
-			if ( self::needs_retry( $row ) ) {
+			if ( ! empty( $row['stale'] ) ) {
+				// The settings changed during the check: replace this job with a fresh one.
+				RPW_Jobs::complete( $job );
+				if ( self::link_by_hash( $pid, $job->link_hash ) ) {
+					RPW_Jobs::enqueue( $pid, $job->link_hash );
+				}
+			} elseif ( self::needs_retry( $row ) ) {
 				RPW_Jobs::retry( $job, 5 * MINUTE_IN_SECONDS * ( 1 + 2 * (int) $job->attempts ) );
 			} else {
 				RPW_Jobs::complete( $job );
@@ -316,7 +322,12 @@ class RPW_Checker {
 				sleep( $delay );
 			}
 			$row = self::check_link( $product_id, $link );
-			if ( self::needs_retry( $row ) ) {
+			if ( ! empty( $row['stale'] ) ) {
+				// The settings changed during the check: make sure a fresh check is queued.
+				if ( self::link_by_hash( $product_id, $hash ) ) {
+					RPW_Jobs::enqueue( $product_id, $hash );
+				}
+			} elseif ( self::needs_retry( $row ) ) {
 				// Temporary failure, or the result was not saved: keep (or add) a queued job so the background tries again.
 				RPW_Jobs::enqueue( $product_id, $hash, 5 * MINUTE_IN_SECONDS );
 			} else {
@@ -497,10 +508,31 @@ class RPW_Checker {
 	 *               "saved" is false when the result could not be written to the database.
 	 */
 	public static function check_link( $product_id, array $link ) {
-		$result       = self::inspect_link( $product_id, $link );
-		$row          = $result['row'];
+		$result = self::inspect_link( $product_id, $link );
+		$row    = $result['row'];
+		// The page took a while to load. If the link's settings were changed (or the link
+		// removed) meanwhile, this price was read the old way: do not save it.
+		if ( self::link_is_stale( $product_id, $link ) ) {
+			$row['stale'] = true;
+			$row['saved'] = false;
+			return $row;
+		}
 		$row['saved'] = RPW_DB::add( $product_id, $link['url'], $row );
 		return $row;
+	}
+
+	/**
+	 * Were this link's settings changed, or the link removed, since it was read?
+	 * Reads the saved settings fresh, not from this request's cache.
+	 *
+	 * @param int   $product_id Product ID.
+	 * @param array $link       Link as it was when the check started.
+	 * @return bool
+	 */
+	public static function link_is_stale( $product_id, array $link ) {
+		wp_cache_delete( (int) $product_id, 'post_meta' );
+		$now = self::link_by_hash( $product_id, RPW_DB::hash( $link['url'] ) );
+		return null === $now || RPW_Metabox::reading_changed( $link, $now );
 	}
 
 	/**

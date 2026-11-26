@@ -20,6 +20,7 @@ class RPW_Metabox {
 	public static function init() {
 		add_action( 'add_meta_boxes_product', array( __CLASS__, 'add' ) );
 		add_action( 'save_post_product', array( __CLASS__, 'save' ), 10, 2 );
+		add_action( 'admin_notices', array( __CLASS__, 'rejected_notice' ) );
 	}
 
 	/**
@@ -318,6 +319,23 @@ class RPW_Metabox {
 	}
 
 	/**
+	 * After a save: say which new competitor links could not be added.
+	 */
+	public static function rejected_notice() {
+		$key  = 'rpw_rejected_' . get_current_user_id();
+		$urls = get_transient( $key );
+		if ( ! is_array( $urls ) || ! $urls ) {
+			return;
+		}
+		delete_transient( $key );
+		echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Rival Price Watch: these competitor links were not added, because the address is not a valid public web address or its site could not be found right now. Check the address and save again:', 'rival-price-watch' ) . '</p><ul>';
+		foreach ( $urls as $u ) {
+			echo '<li><code>' . esc_html( (string) $u ) . '</code></li>';
+		}
+		echo '</ul></div>';
+	}
+
+	/**
 	 * Save links.
 	 *
 	 * @param int     $post_id Post ID.
@@ -347,14 +365,26 @@ class RPW_Metabox {
 		}
 		$old_hashes = array_keys( $old_links );
 
-		$links = array();
-		$seen  = array();
+		$links    = array();
+		$seen     = array();
+		$rejected = array();
 		foreach ( $urls as $i => $raw ) {
-			$url = esc_url_raw( trim( (string) $raw ), array( 'http', 'https' ) );
-			if ( '' === $url || ! wp_http_validate_url( $url ) ) {
+			$typed = trim( (string) $raw );
+			$url   = esc_url_raw( $typed, array( 'http', 'https' ) );
+			if ( '' === $url ) {
+				if ( '' !== $typed ) {
+					$rejected[] = $typed;
+				}
 				continue;
 			}
 			$hash = RPW_DB::hash( $url );
+			// wp_http_validate_url() looks the site up in DNS. A link that is already saved is
+			// kept even when that lookup fails right now (a DNS outage must not erase its
+			// history); every fetch checks the address again with wp_safe_remote_get().
+			if ( ! isset( $old_links[ $hash ] ) && ! wp_http_validate_url( $url ) ) {
+				$rejected[] = $typed;
+				continue;
+			}
 			if ( isset( $seen[ $hash ] ) ) {
 				continue;
 			}
@@ -371,6 +401,10 @@ class RPW_Metabox {
 			if ( count( $links ) >= self::MAX_LINKS ) {
 				break;
 			}
+		}
+
+		if ( $rejected ) {
+			set_transient( 'rpw_rejected_' . get_current_user_id(), array_slice( $rejected, 0, 10 ), 5 * MINUTE_IN_SECONDS );
 		}
 
 		// Forget history of links that were removed.
