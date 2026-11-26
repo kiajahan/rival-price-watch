@@ -225,6 +225,8 @@ FA = {
         'صفحه قیمت %s را نشان می‌دهد اما نمی‌گوید به چه واحد پولی است. برای مقایسه، واحد پول این لینک را انتخاب کنید.',
     'Only when the competitor is cheaper by at least':
         'فقط وقتی رقیب دست\u200cکم این\u200cقدر ارزان\u200cتر است:',
+    'The page shows a price that cannot be real, so it was not used.':
+        'صفحه قیمتی نشان می\u200cدهد که نمی\u200cتواند واقعی باشد، پس استفاده نشد.',
     'variant not confirmed':
         'مدل تأیید نشد',
     'settings changed, waiting for a new check':
@@ -278,7 +280,7 @@ def php_str(v):
 
 def write_po(path, s, p, tr, trp, lang):
     out = ['msgid ""', 'msgstr ""',
-           '"Project-Id-Version: Rival Price Watch 0.2.7\\n"',
+           '"Project-Id-Version: Rival Price Watch 0.2.8\\n"',
            '"MIME-Version: 1.0\\n"',
            '"Content-Type: text/plain; charset=UTF-8\\n"',
            '"Content-Transfer-Encoding: 8bit\\n"']

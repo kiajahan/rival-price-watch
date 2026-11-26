@@ -24,6 +24,11 @@ class RPW_Checker {
 	const BATCH         = 15;
 
 	/**
+	 * Largest price accepted from a page, in its own currency (after the multiplier).
+	 */
+	const MAX_PRICE = 1e15;
+
+	/**
 	 * Seconds one background batch may take (filter: rpw_batch_seconds).
 	 */
 	const BATCH_SECONDS = 25;
@@ -41,8 +46,38 @@ class RPW_Checker {
 		add_action( self::HOOK_RUN, array( __CLASS__, 'start_run' ) );
 		add_action( self::HOOK_CONTINUE, array( __CLASS__, 'process_queue' ) );
 		add_action( self::HOOK_ALERTS, array( __CLASS__, 'send_alerts' ) );
-		add_action( 'update_option_' . RPW_Settings::OPTION, array( __CLASS__, 'schedule' ) );
+		add_action( 'update_option_' . RPW_Settings::OPTION, array( __CLASS__, 'settings_changed' ), 10, 2 );
 		add_action( 'add_option_' . RPW_Settings::OPTION, array( __CLASS__, 'schedule' ) );
+		add_action( 'delete_post', array( __CLASS__, 'forget_product' ) );
+	}
+
+	/**
+	 * Settings were saved: reschedule only when the check frequency changed, so saving
+	 * an alert email or a threshold does not move the next run (or start an extra one).
+	 *
+	 * @param mixed $old Previous settings.
+	 * @param mixed $new New settings.
+	 */
+	public static function settings_changed( $old, $new ) {
+		$was = is_array( $old ) && isset( $old['frequency'] ) ? $old['frequency'] : null;
+		$now = is_array( $new ) && isset( $new['frequency'] ) ? $new['frequency'] : null;
+		if ( $was !== $now || ( 'manual' !== $now && ! wp_next_scheduled( self::HOOK_RUN ) ) ) {
+			self::schedule();
+		}
+	}
+
+	/**
+	 * A product is being deleted for good: remove its price history and queued checks.
+	 * (Moving it to the trash keeps everything, so restoring it brings its history back.)
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public static function forget_product( $post_id ) {
+		if ( 'product' !== get_post_type( $post_id ) ) {
+			return;
+		}
+		RPW_DB::delete_product( (int) $post_id );
+		RPW_Jobs::clear( (int) $post_id );
 	}
 
 	/**
@@ -396,6 +431,14 @@ class RPW_Checker {
 		// Currency: the one chosen for this link, else what the page says. Nothing is assumed.
 		$from = '' !== $link['currency'] ? $link['currency'] : RPW_Currency::normalize( $found['currency'] );
 		$raw  = round( (float) $found['price'] * (float) $link['factor'], 4 );
+
+		// No real price is this large (the database column holds up to about 10^16), so a page
+		// claiming one is broken or hostile. Report it instead of failing to save it.
+		if ( ! is_finite( $raw ) || $raw > self::MAX_PRICE ) {
+			$row['status']  = 'noprice';
+			$row['message'] = __( 'The page shows a price that cannot be real, so it was not used.', 'rival-price-watch' );
+			return compact( 'row', 'found' );
+		}
 
 		// With a variant hint, only a price that was shown to belong to that variant is compared.
 		if ( '' !== trim( $match ) && true !== ( $found['matched'] ?? null ) ) {

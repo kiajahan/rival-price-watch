@@ -661,6 +661,57 @@ try {
 	rpw_eq( 1, $done['checked'], 'with the lock free, Check now fetches again' );
 	rpw_eq( false, (bool) get_option( RPW_Checker::LOCK ), 'and gives the lock back' );
 
+	// ------------------------------------------- 6h. 0.2.8 fixes.
+	echo "\n# Settings saves, deleted products, impossible prices, job claims\n";
+	// Saving settings without changing the frequency keeps the scheduled run where it is.
+	wp_clear_scheduled_hook( RPW_Checker::HOOK_RUN );
+	wp_schedule_event( time() + 20 * HOUR_IN_SECONDS, 'daily', RPW_Checker::HOOK_RUN );
+	$next_before = wp_next_scheduled( RPW_Checker::HOOK_RUN );
+	$old_s       = array_merge( RPW_Settings::defaults(), array( 'frequency' => 'daily' ) );
+	$new_s       = array_merge( $old_s, array( 'alert_email' => 'someone-else@example.org' ) );
+	RPW_Checker::settings_changed( $old_s, $new_s );
+	rpw_eq( $next_before, wp_next_scheduled( RPW_Checker::HOOK_RUN ), 'changing only the alert email does not move the next run' );
+	RPW_Checker::settings_changed( $old_s, array_merge( $old_s, array( 'frequency' => 'twicedaily' ) ) );
+	rpw_eq( true, wp_next_scheduled( RPW_Checker::HOOK_RUN ) !== $next_before, 'changing the frequency reschedules it' );
+	wp_clear_scheduled_hook( RPW_Checker::HOOK_RUN );
+
+	// Deleting a product for good removes its history and queued checks; trashing keeps them.
+	$p12  = rpw_product( 100, array( $base . 'del' ) );
+	$h12  = RPW_DB::hash( $base . 'del' );
+	$rpw_pages[ $base . 'del' ] = rpw_page( 90, $shop );
+	RPW_Checker::check_product( $p12 );
+	RPW_Jobs::enqueue( $p12, $h12, 3600 );
+	wp_trash_post( $p12 );
+	rpw_eq( true, isset( RPW_DB::latest_for_product( $p12 )[ $h12 ] ), 'a trashed product keeps its price history' );
+	wp_untrash_post( $p12 );
+	wp_delete_post( $p12, true );
+	$left12 = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . RPW_DB::table() . ' WHERE product_id = %d', $p12 ) ); // phpcs:ignore
+	rpw_eq( 0, $left12, 'a deleted product leaves no price rows' );
+	rpw_eq( 0, rpw_jobs_of( $p12 ), 'and no queued checks' );
+
+	// An impossible price is reported, not saved as a price.
+	$p13                         = rpw_product( 100, array( $base . 'huge' ) );
+	$created[]                   = $p13;
+	$rpw_pages[ $base . 'huge' ] = rpw_page( '100000000000000000000000', $shop );
+	RPW_Checker::check_product( $p13 );
+	$last13 = RPW_DB::latest_for_product( $p13 )[ RPW_DB::hash( $base . 'huge' ) ] ?? null;
+	rpw_eq( 'noprice', $last13->status ?? null, 'an impossibly large price is reported as no price' );
+
+	// Only the worker holding the claim can finish or retry a job.
+	RPW_Jobs::enqueue( $p13, 'claimtest' );
+	$job = RPW_Jobs::claim();
+	while ( $job && 'claimtest' !== $job->link_hash ) {
+		RPW_Jobs::retry( $job, 3600 );
+		$job = RPW_Jobs::claim();
+	}
+	$stale        = clone $job;
+	$stale->claim = 'someone-elses-old-claim';
+	RPW_Jobs::complete( $stale );
+	rpw_eq( 1, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . RPW_Jobs::table() . ' WHERE product_id = %d AND link_hash = %s', $p13, 'claimtest' ) ), 'a worker with an old claim cannot remove the job' ); // phpcs:ignore
+	RPW_Jobs::complete( $job );
+	rpw_eq( 0, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . RPW_Jobs::table() . ' WHERE product_id = %d AND link_hash = %s', $p13, 'claimtest' ) ), 'the worker holding the claim can' ); // phpcs:ignore
+	RPW_Jobs::clear( $p13 );
+
 	// ------------------------------------------------ 7. overview index.
 	echo "\n# Overview data\n";
 	$index = RPW_Checker::index();

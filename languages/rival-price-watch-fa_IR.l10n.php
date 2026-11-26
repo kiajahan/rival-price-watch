@@ -82,6 +82,7 @@ return ['domain'=>'rival-price-watch','plural-forms'=>'nplurals=1; plural=0;','l
 'The site may be blocking automatic checks.'=>'ممکن است آن سایت بررسی خودکار را مسدود کرده باشد.',
 'None of the %2$d offers on the page matches "%1$s". Check the variant text for this link.'=>'هیچ‌کدام از %2$d پیشنهاد این صفحه با «%1$s» جور نیست. متن «مدل» این لینک را بررسی کنید.',
 'No price found on the page. The site does not publish price data that can be read automatically.'=>'قیمتی در صفحه پیدا نشد. این سایت داده قیمتی که به‌صورت خودکار خوانده شود منتشر نمی‌کند.',
+'The page shows a price that cannot be real, so it was not used.'=>'صفحه قیمتی نشان می‌دهد که نمی‌تواند واقعی باشد، پس استفاده نشد.',
 'A price was found, but the page does not show that it belongs to "%s", so it is not compared. Clear the variant text if this page only sells one version.'=>'قیمتی پیدا شد، اما صفحه نشان نمی‌دهد که مربوط به «%s» است، پس مقایسه نمی‌شود. اگر این صفحه فقط یک مدل می‌فروشد، خانه «مدل» را خالی کنید.',
 'The page shows the price %s but does not say which currency it is in. Choose the currency for this link to compare it.'=>'صفحه قیمت %s را نشان می‌دهد اما نمی‌گوید به چه واحد پولی است. برای مقایسه، واحد پول این لینک را انتخاب کنید.',
 'This site sells in %1$s. Add a %1$s to %2$s exchange rate in Settings to compare it.'=>'این سایت با %1$s می‌فروشد. برای مقایسه، نرخ تبدیل %1$s به %2$s را در تنظیمات وارد کنید.',

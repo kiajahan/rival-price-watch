@@ -178,7 +178,12 @@ class RPW_Jobs {
 	 */
 	public static function complete( $job ) {
 		global $wpdb;
-		$wpdb->delete( self::table(), array( 'id' => (int) $job->id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// A worker that stalled and lost its claim must not remove a job another worker now holds.
+		$where = array( 'id' => (int) $job->id );
+		if ( ! empty( $job->claim ) ) {
+			$where['claim'] = (string) $job->claim;
+		}
+		$wpdb->delete( self::table(), $where ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
@@ -203,7 +208,10 @@ class RPW_Jobs {
 				'attempts'     => $attempts,
 				'available_at' => self::now( $delay ),
 			),
-			array( 'id' => (int) $job->id )
+			empty( $job->claim ) ? array( 'id' => (int) $job->id ) : array(
+				'id'    => (int) $job->id,
+				'claim' => (string) $job->claim,
+			)
 		);
 		return true;
 	}

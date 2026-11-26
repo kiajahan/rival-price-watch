@@ -4,7 +4,7 @@ Tags: woocommerce, price tracking, competitor prices, price monitor, price alert
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.7
+Stable tag: 0.2.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,12 @@ No. It only reads and reports. Your prices are never changed.
 3. Settings.
 
 == Changelog ==
+
+= 0.2.8 =
+* Fixed: saving the settings (for example only the alert email) no longer moves the next automatic check to 10 minutes later. Only a change of the check frequency reschedules it.
+* Fixed: when a product is deleted for good, its price history and queued checks are removed too. Moving it to the trash keeps them.
+* Fixed: a page that claims an impossibly large price is reported as "no price found" instead of failing to save.
+* Changed: only the background worker that holds a queued check can finish or retry it, so a stalled worker cannot remove another worker's job.
 
 = 0.2.7 =
 * Fixed: when one link was waiting for a retry (for example after "Check now" hit a timeout), the scheduled run checked nothing else that day. The scheduled run now always queues every link unless a full run is really still in progress.
